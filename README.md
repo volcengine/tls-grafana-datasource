@@ -13,19 +13,21 @@ npm run build --force
 
 1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
 
-* 使用RPM或者YUM安装的Grafana
-插件目录是 /usr/lib/grafana/plugins，把插件文件解压到目录后，重启Grafana。
+* 使用RPM或者YUM安装的Grafana  
+插件目录是 /usr/lib/grafana/plugins：
 ```
 unzip tls-grafana-datasource-main.zip -d /var/lib/grafana/plugins
 ```
-* 使用.tar.gz文件安装的Grafana
-插件目录是 {PATH_TO}/grafana-6.6.0/data/plugins
+* 使用.tar.gz文件安装的Grafana  
+插件目录是 {PATH_TO}/grafana-6.6.0/data/plugins：
 ```
 unzip tls-grafana-datasource-main.zip -d {PATH_TO}/grafana-6.6.0/data/plugins
 ```
 2. Grafana>=7.x(6.x及以下版本不需要)配置权限，允许加载未签名的Grafana插件。
-* 使用RPM或者YUM安装的Grafana配置文件路径为:/etc/grafana/grafana.ini
-* 使用.tar.gz文件安装的Grafana：{PATH_TO}/grafana-6.6.0/conf/defaults.ini
+* 使用RPM或者YUM安装的Grafana  
+配置文件路径为:/etc/grafana/grafana.ini
+* 使用.tar.gz文件安装的Grafana  
+配置文件路径为:{PATH_TO}/grafana-6.6.0/conf/defaults.ini
 
 设置
 ```
