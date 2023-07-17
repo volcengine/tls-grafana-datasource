@@ -25,9 +25,11 @@ sudo systemctl start grafana-server
 brew services restart grafana
 ```
 2. Grafana>=7.x(6.x及以下版本不需要)配置权限
-允许加载未签名的Grafana插件，Linux目录为/etc/grafana/grafana.ini，Mac目录为/usr/local/etc/grafana/grafana.ini
-设置allow_loading_unsigned_plugins为true
-
+允许加载未签名的Grafana插件，Linux目录为/etc/grafana/grafana.ini，Mac目录为/usr/local/etc/grafana/grafana.ini。
+设置
+```
+allow_loading_unsigned_plugins = tls-grafana-datasource
+```
 ## 使用
 目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
 1. 时间序列图既是随着时间变化的指标图标，包含饼图、折线图、柱状图。
