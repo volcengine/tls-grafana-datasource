@@ -49,7 +49,7 @@ systemctl restart grafana-server
 4. 设置完成后，点击保存可以测试数据源是否可以访问。
 ![配置数据源](./src/img/config_datasource.png)
 ### 添加Dashboard
-1. 在页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
+1. 在首页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
 
 2. 单击Dashboard右上角的设置，添加变量。
 
@@ -62,12 +62,13 @@ systemctl restart grafana-server
 *|select distinct endpoint
 ```
 可以开启多选Multi-value。
+3. 变量可以在检索时作为参数进行筛选，在query语句生效。interval类型变量用两个美元符号加变量名$$myinterval使用，非interval类型用$endpoint引用。
 ![配置数据源](./src/img/varible_endpoint.png)
 ## 添加图表
 ### 时间序列图表
 1. 添加一个Panel, 在 datasource 选项, 选择刚创建的日志服务数据源。左上角的下拉菜单对应刚才添加的时间间隔和endpoint，用于查询结果的筛选。
 
-2. 在 query 输入查询语句, 查询语法与日志服务控制台相同.
+2. 在 query 输入查询语句, 查询语法与日志服务控制台相同。
 
 ```
 $endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cnt ,1 as cnt2 group by time limit 100
