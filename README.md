@@ -13,22 +13,32 @@ npm run build --force
 
 1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
 
-### Linux环境
+* 使用RPM或者YUM安装的Grafana
 插件目录是 /usr/lib/grafana/plugins，把插件文件解压到目录后，重启Grafana。
 ```
-sudo systemctl daemon-reload
-sudo systemctl start grafana-server
+unzip tls-grafana-datasource-main.zip -d /var/lib/grafana/plugins
 ```
-### Mac环境
-在 Mac 插件目录是 /usr/local/var/lib/grafana/plugins
+* 使用.tar.gz文件安装的Grafana
+插件目录是 {PATH_TO}/grafana-6.6.0/data/plugins
 ```
-brew services restart grafana
+unzip tls-grafana-datasource-main.zip -d {PATH_TO}/grafana-6.6.0/data/plugins
 ```
-2. Grafana>=7.x(6.x及以下版本不需要)配置权限
-允许加载未签名的Grafana插件，Linux目录为/etc/grafana/grafana.ini，Mac目录为/usr/local/etc/grafana/grafana.ini。
+2. Grafana>=7.x(6.x及以下版本不需要)配置权限，允许加载未签名的Grafana插件。
+* 使用RPM或者YUM安装的Grafana配置文件路径为:/etc/grafana/grafana.ini
+* 使用.tar.gz文件安装的Grafana：{PATH_TO}/grafana-6.6.0/conf/defaults.ini
+
 设置
 ```
 allow_loading_unsigned_plugins = tls-grafana-datasource
+```
+3. 重启Grafana
+* 使用RPM或者YUM安装的Grafana:
+```
+systemctl restart grafana-server
+```
+* 使用.tar.gz文件安装的Grafana:
+```
+./bin/grafana-server
 ```
 ## 使用
 目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
