@@ -1,16 +1,5 @@
 ## 火山引擎日志服务数据源
-## 开发
-1. 下载代码后在根目录执行
-```
-yarn install
-```
-2. 编译
-```
-npm run build --force
-```
 ## 安装
-
-
 1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
 
 * 使用RPM或者YUM安装的Grafana
