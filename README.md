@@ -33,7 +33,8 @@ unzip tls-grafana-datasource-main.zip -d {PATH_TO}/grafana-6.6.0/data/plugins
 ```
 allow_loading_unsigned_plugins = tls-grafana-datasource
 ```
-3. 重启Grafana
+3. 重启Grafana。  
+首先，kill终止Grafana进程。然后执行重启命令
 * 使用RPM或者YUM安装的Grafana:
 ```
 systemctl restart grafana-server
