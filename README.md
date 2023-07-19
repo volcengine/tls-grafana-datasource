@@ -34,8 +34,8 @@ systemctl restart grafana-server
 ```
 ## 使用
 目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
-1. 时间序列图既是随着时间变化的指标图标，包含饼图、折线图、柱状图。
-2. 表格则是明细日志的查看。
+1. 时间序列图既是随着时间变化的折线图。
+2. 表格是明细日志的查看。
 ### 添加数据源
 
 1. 在数据源管理面板, 添加 LogService 数据源
@@ -78,7 +78,7 @@ $endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cn
 
 4. Y轴设置为`cnt,cnt2` (**多列用逗号分隔**)。
    ![配置数据源](./src/img/config_panel.png)
-5. Visualization选项中图表类型可以选择，Graph、Pie、Stat、React Graph、HeatMap。
+5. Visualization选项中图表类型可以选择，Graph、React Graph。
    ![配置数据源](./src/img/config_panel_type.png)
 6. 配置图表的Title、Description等属性，保存即可。
 
