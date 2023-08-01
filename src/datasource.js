@@ -44,10 +44,24 @@ export class GenericDatasource {
                 'Limit': 1000,
                 'Sort': 'desc'
             }
+            let analysisType = undefined;
+
+            // 解析分析返回值 0.3.0api兼容
+            function parseColumnByType(analysisType, column, value) {
+                if (analysisType[column] === "long") {
+                    return Math.floor(parseFloat(value))
+                } else if (analysisType[column] === "double") {
+                    return parseFloat(value)
+                }
+                return value
+            }
+
             // 检索结果
             const req = this.tlsService.searchLogs(body).then(function (result) {
                 // 分析和检索数据分开处理
+
                 if (result.data.Analysis) {
+                    analysisType = result.data.AnalysisResult.Type
                     return result.data.AnalysisResult.Data;
                 } else {
                     return result.data.Logs;
@@ -84,19 +98,20 @@ export class GenericDatasource {
                     // x轴不是table就是曲线图
                     const xcolumn = target.xcolumn;
                     _.forEach(logs, log => {
-                        const xvalue = log[xcolumn];
+                        const xvalue = parseColumnByType(analysisType, xcolumn, log[xcolumn]);
                         _.forOwn(log, function (value, key) {
+                            let keyNumber = parseColumnByType(analysisType, key, log[key]);
                             if (ycolumn.includes(key)) {
                                 if (yValues[key] === undefined) {
                                     yValues[key] = {
                                         refId: refId,
                                         target: key,
                                         datapoints: [
-                                            [log[key], xvalue]
+                                            [keyNumber, xvalue]
                                         ]
                                     }
                                 } else {
-                                    yValues[key].datapoints.push([log[key], xvalue])
+                                    yValues[key].datapoints.push([keyNumber, xvalue])
                                 }
                             }
                         })

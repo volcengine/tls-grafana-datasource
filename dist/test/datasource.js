@@ -67,10 +67,24 @@ var GenericDatasource = exports.GenericDatasource = function () {
                     'Limit': 1000,
                     'Sort': 'desc'
                 };
+                var analysisType = undefined;
+
+                // 解析分析返回值 0.3.0api兼容
+                function parseColumnByType(analysisType, column, value) {
+                    if (analysisType[column] === "long") {
+                        return Math.floor(parseFloat(value));
+                    } else if (analysisType[column] === "double") {
+                        return parseFloat(value);
+                    }
+                    return value;
+                }
+
                 // 检索结果
                 var req = _this.tlsService.searchLogs(body).then(function (result) {
                     // 分析和检索数据分开处理
+
                     if (result.data.Analysis) {
+                        analysisType = result.data.AnalysisResult.Type;
                         return result.data.AnalysisResult.Data;
                     } else {
                         return result.data.Logs;
@@ -107,17 +121,18 @@ var GenericDatasource = exports.GenericDatasource = function () {
                         // x轴不是table就是曲线图
                         var xcolumn = target.xcolumn;
                         _lodash2.default.forEach(logs, function (log) {
-                            var xvalue = log[xcolumn];
+                            var xvalue = parseColumnByType(analysisType, xcolumn, log[xcolumn]);
                             _lodash2.default.forOwn(log, function (value, key) {
+                                var keyNumber = parseColumnByType(analysisType, key, log[key]);
                                 if (ycolumn.includes(key)) {
                                     if (yValues[key] === undefined) {
                                         yValues[key] = {
                                             refId: refId,
                                             target: key,
-                                            datapoints: [[log[key], xvalue]]
+                                            datapoints: [[keyNumber, xvalue]]
                                         };
                                     } else {
-                                        yValues[key].datapoints.push([log[key], xvalue]);
+                                        yValues[key].datapoints.push([keyNumber, xvalue]);
                                     }
                                 }
                             });
