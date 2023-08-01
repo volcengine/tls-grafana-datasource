@@ -13,25 +13,40 @@ npm run build --force
 
 1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
 
-### Linux环境
-插件目录是 /usr/lib/grafana/plugins，把插件文件解压到目录后，重启Grafana。
+* 使用RPM或者YUM安装的Grafana  
+插件目录是 /usr/lib/grafana/plugins：
 ```
-sudo systemctl daemon-reload
-sudo systemctl start grafana-server
+unzip tls-grafana-datasource-main.zip -d /var/lib/grafana/plugins
 ```
-### Mac环境
-在 Mac 插件目录是 /usr/local/var/lib/grafana/plugins
+* 使用.tar.gz文件安装的Grafana  
+插件目录是 {PATH_TO}/grafana-6.6.0/data/plugins：
 ```
-brew services restart grafana
+unzip tls-grafana-datasource-main.zip -d {PATH_TO}/grafana-6.6.0/data/plugins
 ```
-2. Grafana>=7.x(6.x及以下版本不需要)配置权限
-允许加载未签名的Grafana插件，Linux目录为/etc/grafana/grafana.ini，Mac目录为/usr/local/etc/grafana/grafana.ini
-设置allow_loading_unsigned_plugins为true
+2. Grafana>=7.x(6.x及以下版本不需要)配置权限，允许加载未签名的Grafana插件。
+* 使用RPM或者YUM安装的Grafana  
+配置文件路径为:/etc/grafana/grafana.ini
+* 使用.tar.gz文件安装的Grafana  
+配置文件路径为:{PATH_TO}/grafana-6.6.0/conf/defaults.ini
 
+设置
+```
+allow_loading_unsigned_plugins = tls-grafana-datasource
+```
+3. 重启Grafana。  
+首先，kill终止Grafana进程。然后执行重启命令
+* 使用RPM或者YUM安装的Grafana:
+```
+systemctl restart grafana-server
+```
+* 使用.tar.gz文件安装的Grafana:
+```
+./bin/grafana-server
+```
 ## 使用
 目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
-1. 时间序列图既是随着时间变化的指标图标，包含饼图、折线图、柱状图。
-2. 表格则是明细日志的查看。
+1. 时间序列图既是随着时间变化的折线图。
+2. 表格是明细日志的查看。
 ### 添加数据源
 
 1. 在数据源管理面板, 添加 LogService 数据源
@@ -45,7 +60,7 @@ brew services restart grafana
 4. 设置完成后，点击保存可以测试数据源是否可以访问。
 ![配置数据源](./src/img/config_datasource.png)
 ### 添加Dashboard
-1. 在页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
+1. 在首页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
 
 2. 单击Dashboard右上角的设置，添加变量。
 
@@ -58,12 +73,13 @@ brew services restart grafana
 *|select distinct endpoint
 ```
 可以开启多选Multi-value。
+3. 变量可以在检索时作为参数进行筛选，在query语句生效。interval类型变量用两个美元符号加变量名$$myinterval使用，非interval类型用$endpoint引用。
 ![配置数据源](./src/img/varible_endpoint.png)
 ## 添加图表
 ### 时间序列图表
 1. 添加一个Panel, 在 datasource 选项, 选择刚创建的日志服务数据源。左上角的下拉菜单对应刚才添加的时间间隔和endpoint，用于查询结果的筛选。
 
-2. 在 query 输入查询语句, 查询语法与日志服务控制台相同.
+2. 在 query 输入查询语句, 查询语法与日志服务控制台相同。
 
 ```
 $endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cnt ,1 as cnt2 group by time limit 100
@@ -73,7 +89,7 @@ $endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cn
 
 4. Y轴设置为`cnt,cnt2` (**多列用逗号分隔**)。
    ![配置数据源](./src/img/config_panel.png)
-5. Visualization选项中图表类型可以选择，Graph、Pie、Stat、React Graph、HeatMap。
+5. Visualization选项中图表类型可以选择，Graph、React Graph。
    ![配置数据源](./src/img/config_panel_type.png)
 6. 配置图表的Title、Description等属性，保存即可。
 
