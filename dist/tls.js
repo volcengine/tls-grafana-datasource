@@ -89,7 +89,8 @@ var TLSService = exports.TLSService = function () {
                 region: Region,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': '*/*'
+                    'Accept': '*/*',
+                    'x-tls-apiversion': '0.3.0'
                 }, // 默认不签名用户传递的headers 防止tlb改header导致的签名错误 本代码用于开发自测 这部分安全性可以忽略
                 params: {},
                 url: this.tlsConfig.url,
