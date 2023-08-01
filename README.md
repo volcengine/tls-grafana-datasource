@@ -91,6 +91,8 @@ $endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cn
    ![配置数据源](./src/img/config_panel.png)
 5. Visualization选项中图表类型可以选择，Graph、React Graph。
    ![配置数据源](./src/img/config_panel_type.png)
+   也可以对数值精度在Axes中配置decimals参数。
+   ![配置数据源](./src/img/config_decimal.png)
 6. 配置图表的Title、Description等属性，保存即可。
 
 ### 表格图表
