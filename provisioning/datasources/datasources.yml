@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: 'tls-grafana-datasource'
+    type: 'bytedance-tlsgrafana-datasource'
+    access: proxy
+    isDefault: false
+    orgId: 1
+    version: 1
+    editable: true
