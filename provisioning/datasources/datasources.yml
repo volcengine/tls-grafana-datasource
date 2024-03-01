@@ -2,7 +2,7 @@ apiVersion: 1
 
 datasources:
   - name: 'tls-grafana-datasource'
-    type: 'bytedance-tlsgrafana-datasource'
+    type: 'tls-grafana-datasource'
     access: proxy
     isDefault: false
     orgId: 1

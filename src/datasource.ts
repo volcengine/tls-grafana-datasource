@@ -1,10 +1,10 @@
 import { DataSourceInstanceSettings, CoreApp } from '@grafana/data';
 import { DataSourceWithBackend } from '@grafana/runtime';
 
-import { MyQuery, MyDataSourceOptions, DEFAULT_QUERY } from './types';
+import { MyQuery, TlsDataSourceOptions, DEFAULT_QUERY } from './types';
 
-export class DataSource extends DataSourceWithBackend<MyQuery, MyDataSourceOptions> {
-  constructor(instanceSettings: DataSourceInstanceSettings<MyDataSourceOptions>) {
+export class DataSource extends DataSourceWithBackend<MyQuery, TlsDataSourceOptions> {
+  constructor(instanceSettings: DataSourceInstanceSettings<TlsDataSourceOptions>) {
     super(instanceSettings);
   }
 

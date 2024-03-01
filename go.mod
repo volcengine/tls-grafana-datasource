@@ -4,7 +4,10 @@ go 1.21
 
 toolchain go1.21.5
 
-require github.com/grafana/grafana-plugin-sdk-go v0.212.0
+require (
+	github.com/grafana/grafana-plugin-sdk-go v0.212.0
+	github.com/volcengine/volc-sdk-golang v1.0.144
+)
 
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
@@ -18,6 +21,9 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20230731152917-f99041a5c027 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/getkin/kin-openapi v0.120.0 // indirect
+	github.com/go-kit/kit v0.12.0 // indirect
+	github.com/go-kit/log v0.2.1 // indirect
+	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -53,7 +59,9 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.46.0 // indirect
@@ -88,5 +96,6 @@ require (
 	google.golang.org/grpc v1.60.1 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

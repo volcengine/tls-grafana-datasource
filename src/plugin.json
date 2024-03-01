@@ -2,16 +2,19 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Tls-Grafana-Datasource",
-  "id": "bytedance-tlsgrafana-datasource",
+  "id": "tls-grafana-datasource",
   "metrics": true,
   "backend": true,
+  "alerting": true,
   "executable": "gpx_tls_grafana_datasource",
   "info": {
     "description": "",
     "author": {
       "name": "Bytedance"
     },
-    "keywords": ["datasource"],
+    "keywords": [
+      "datasource"
+    ],
     "logos": {
       "small": "img/logo.svg",
       "large": "img/logo.svg"
@@ -22,7 +25,7 @@
     "updated": "%TODAY%"
   },
   "dependencies": {
-    "grafanaDependency": ">=10.3.3",
+    "grafanaDependency": ">=8.0.0",
     "plugins": []
   }
 }

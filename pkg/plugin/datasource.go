@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"time"
-
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+	sdk "github.com/volcengine/volc-sdk-golang/service/tls"
+	"time"
 )
 
 // Make sure Datasource implements required interfaces. This is important to do
@@ -94,14 +94,30 @@ func (d *Datasource) query(_ context.Context, pCtx backend.PluginContext, query 
 // datasource configuration page which allows users to verify that
 // a datasource is working as expected.
 func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
+	log.DefaultLogger.Info("CheckHealth called", "request", req)
 	var status = backend.HealthStatusOk
 	var message = "Data source is working"
+	config, err := LoadSettings(req.PluginContext)
 
-	if rand.Int()%2 == 0 {
-		status = backend.HealthStatusError
-		message = "randomized error"
+	if err != nil {
+		log.DefaultLogger.Error("CheckHealth called load settings ", "err", err)
+		return nil, err
 	}
-
+	cli := sdk.NewClient(config.Endpoint, config.AccessKeyId, config.AccessKeySecret, "", config.Region)
+	end := time.Now().UnixMilli()
+	resp, err := cli.SearchLogsV2(&sdk.SearchLogsRequest{
+		TopicID:   config.Topic,
+		Query:     "*",
+		StartTime: end - 60*1000,
+		EndTime:   end,
+		Limit:     1,
+	})
+	if err != nil {
+		status = backend.HealthStatusError
+		message = err.Error()
+		log.DefaultLogger.Error("CheckHealth error", "req_id", resp.CommonResponse.RequestID, "err", err)
+	}
+	log.DefaultLogger.Info("CheckHealth success resp", "resp", *resp)
 	return &backend.CheckHealthResult{
 		Status:  status,
 		Message: message,
