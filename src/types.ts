@@ -1,12 +1,14 @@
 import {DataSourceJsonData} from '@grafana/data';
 import {DataQuery} from '@grafana/schema';
 
-export interface MyQuery extends DataQuery {
-    queryText?: string;
+export interface TlsQuery extends DataQuery {
+    ycol?: string;
+    xcol?: string;
+    tls_query?: string;
     constant: number;
 }
 
-export const DEFAULT_QUERY: Partial<MyQuery> = {
+export const DEFAULT_QUERY: Partial<TlsQuery> = {
     constant: 6.5,
 };
 
