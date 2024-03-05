@@ -19,6 +19,7 @@ export function QueryEditor({query, onChange, onRunQuery}: Props) {
     };
     const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
         onChange({...query, tls_query: event.target.value});
+        onRunQuery();
     };
     const {ycol, xcol, tls_query} = query;
 

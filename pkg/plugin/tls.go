@@ -14,6 +14,17 @@ type LogSource struct {
 	AccessKeySecret string
 }
 
+type Result struct {
+	refId        string
+	dataResponse backend.DataResponse
+}
+
+type QueryInfo struct {
+	Query string `json:"tls_query"`
+	Xcol  string `json:"xcol"`
+	Ycol  string `json:"ycol"`
+}
+
 func LoadSettings(ctx backend.PluginContext) (*LogSource, error) {
 	model := &LogSource{}
 
