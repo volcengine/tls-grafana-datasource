@@ -97,21 +97,9 @@ func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequ
 	log.DefaultLogger.Info("CheckHealth called", "request", req)
 	var status = backend.HealthStatusOk
 	var message = "Data source is working"
-	config, err := LoadSettings(req.PluginContext)
-
-	if err != nil {
-		log.DefaultLogger.Error("CheckHealth called load settings ", "err", err)
-		return nil, err
-	}
-	cli := sdk.NewClient(config.Endpoint, config.AccessKeyId, config.AccessKeySecret, "", config.Region)
 	end := time.Now().UnixMilli()
-	resp, err := cli.SearchLogsV2(&sdk.SearchLogsRequest{
-		TopicID:   config.Topic,
-		Query:     "*",
-		StartTime: end - 60*1000,
-		EndTime:   end,
-		Limit:     1,
-	})
+	start := end - 60000
+	resp, err := SearchLogs(req.PluginContext, "*", start, end, 1)
 	if err != nil {
 		status = backend.HealthStatusError
 		message = err.Error()
@@ -122,4 +110,22 @@ func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequ
 		Status:  status,
 		Message: message,
 	}, nil
+}
+
+func SearchLogs(ctx backend.PluginContext, query string, start, end int64, limit int) (*sdk.SearchLogsResponse, error) {
+	config, err := LoadSettings(ctx)
+
+	if err != nil {
+		log.DefaultLogger.Error("load config settings ", "err", err)
+		return nil, err
+	}
+	cli := sdk.NewClient(config.Endpoint, config.AccessKeyId, config.AccessKeySecret, "", config.Region)
+
+	return cli.SearchLogsV2(&sdk.SearchLogsRequest{
+		TopicID:   config.Topic,
+		Query:     query,
+		StartTime: start,
+		EndTime:   end,
+		Limit:     limit,
+	})
 }

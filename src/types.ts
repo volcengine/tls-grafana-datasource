@@ -5,11 +5,10 @@ export interface TlsQuery extends DataQuery {
     ycol?: string;
     xcol?: string;
     tls_query?: string;
-    constant: number;
 }
 
 export const DEFAULT_QUERY: Partial<TlsQuery> = {
-    constant: 6.5,
+    tls_query: "*",
 };
 
 /**

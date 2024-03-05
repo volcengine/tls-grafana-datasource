@@ -3,7 +3,7 @@ import { DataSourceWithBackend } from '@grafana/runtime';
 
 import { TlsQuery, TlsDataSourceOptions, DEFAULT_QUERY } from './types';
 
-export class DataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
+export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<TlsDataSourceOptions>) {
     super(instanceSettings);
   }

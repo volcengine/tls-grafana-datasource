@@ -1,11 +1,11 @@
 import React, {ChangeEvent} from 'react';
-import {Card, Icon, InlineField, Input, SeriesTable, Tooltip} from '@grafana/ui';
+import {Card, Icon, InlineField, InlineFormLabel, Input, Select, SeriesTable, Tooltip} from '@grafana/ui';
 import {QueryEditorProps} from '@grafana/data';
-import {DataSource} from '../datasource';
+import {TlsDataSource} from '../tlsDataSource';
 import {TlsDataSourceOptions, TlsQuery} from '../types';
-import {version, xColInfoSeries, yColInfoSeries} from "./const";
+import {version, xColInfoSeries, xSelectOptions, yColInfoSeries} from "./const";
 
-type Props = QueryEditorProps<DataSource, TlsQuery, TlsDataSourceOptions>;
+type Props = QueryEditorProps<TlsDataSource, TlsQuery, TlsDataSourceOptions>;
 
 export function QueryEditor({query, onChange, onRunQuery}: Props) {
     const onXChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -25,25 +25,58 @@ export function QueryEditor({query, onChange, onRunQuery}: Props) {
     return (
         <>
             <div className="gf-form gf-form--grow flex-shrink-1 min-width-15">
-                <InlineField label="query">
+                <InlineFormLabel width={6} className="query-keyword">
+                    Query
+                </InlineFormLabel>
+                <div style={{width: '100%'}}>
                     <Input onChange={onQueryChange} value={tls_query || ''}/>
-                </InlineField>
+                </div>
             </div>
-            <div className="gf-form-inline" style={{lineHeight: '32px', verticalAlign: 'center'}}>
-                <InlineField label="ycol" labelWidth={16}>
-                    <Input onChange={onYChange} value={ycol || ''} width={8}
-                           suffix={
-                               <Tooltip content={<SelectTips type="ycol"/>} interactive theme="info-alt">
-                                   <Icon name="question-circle"/>
-                               </Tooltip>
-                           }/>
+            <div className="gf-form-inline">
+                <InlineField label="ycol" labelWidth={12}>
+                    <Input
+                        onChange={onYChange}
+                        value={ycol || ''}
+                        width={40}
+                        prefix={<Icon name="text-fields"/>}
+                        suffix={
+                            <Tooltip content={<SelectTips type="ycol"/>} interactive theme="info-alt">
+                                <Icon name="question-circle"/>
+                            </Tooltip>
+                        }/>
                 </InlineField>
-                <InlineField label="xcol">
-                    <Input onChange={onXChange} value={xcol || ''}/>
+                <InlineField label="xcol" labelWidth={12}>
+                    <div style={{display: 'flex'}}>
+                        <Select
+                            width={20}
+                            menuShouldPortal
+                            options={xSelectOptions}
+                            value={onSelectChange(xcol ?? 'time')}
+                            onChange={(v) => {
+                                if (v.value !== 'custom') {
+                                    onChange({...query, xcol: v.value});
+                                    onRunQuery();
+                                } else {
+                                    onChange({...query, xcol: 'time'});
+                                }
+                            }}
+                            prefix={<Icon name="palette"/>}
+                        />
+                        <Input onChange={onXChange}
+                               value={xcol || ''}
+                               width={40}
+                               prefix={<Icon name="x"/>}
+                               suffix={
+                                   <Tooltip content={<SelectTips type="xcol"/>} interactive theme="info-alt">
+                                       <Icon name="question-circle"/>
+                                   </Tooltip>
+                               }
+                        />
+
+                    </div>
 
                 </InlineField>
             </div>
-
         </>
     );
 }
@@ -79,3 +112,10 @@ export function SelectTips(props: { type: string }) {
         </Card>
     );
 }
+
+const onSelectChange = (realXCol: string) => {
+    if (xSelectOptions.find((e) => e.value === realXCol)) {
+        return realXCol;
+    }
+    return 'custom';
+};
