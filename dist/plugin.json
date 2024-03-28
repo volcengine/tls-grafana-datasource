@@ -5,6 +5,7 @@
   "id": "tls-grafana-datasource",
   "metrics": true,
   "backend": true,
+  "annotations": true,
   "alerting": true,
   "executable": "gpx_tls_grafana_datasource",
   "info": {
