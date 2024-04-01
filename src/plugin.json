@@ -1,35 +1,32 @@
 {
-  "name": "LogService",
-  "id": "tls-grafana-datasource",
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
-
-  "partials": {
-    "config": "public/app/plugins/datasource/simplejson/partials/config.html"
-  },
-
+  "name": "Tls-Grafana-Datasource",
+  "id": "tls-grafana-datasource",
   "metrics": true,
+  "backend": true,
   "annotations": true,
-
+  "alerting": true,
+  "executable": "gpx_tls_grafana_datasource",
   "info": {
-    "description": "VolcEngine log service",
+    "description": "",
     "author": {
-      "name": "TLS developer",
-      "url": "https://www.volcengine.com/product/tls"
+      "name": "Bytedance"
     },
-    "logos": {
-      "small": "img/tls_logo.svg",
-      "large": "img/tls_logo.svg"
-    },
-    "links": [
-      {"name": "GitHub", "url": "https://github.com/grafana/simple-json-datasource"},
-      {"name": "MIT License", "url": "https://github.com/grafana/simple-json-datasource/blob/master/LICENSE"}
+    "keywords": [
+      "datasource"
     ],
-    "version": "1.0.1",
-    "updated": "2023-05-25"
+    "logos": {
+      "small": "img/logo.svg",
+      "large": "img/logo.svg"
+    },
+    "links": [],
+    "screenshots": [],
+    "version": "%VERSION%",
+    "updated": "%TODAY%"
   },
-
   "dependencies": {
-    "grafanaVersion": "6.x.x",
-    "plugins": [ ]
+    "grafanaDependency": ">=8.0.0",
+    "plugins": []
   }
 }

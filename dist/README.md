@@ -1,109 +1,49 @@
-## 火山引擎日志服务数据源
-## 开发
-1. 下载代码后在根目录执行
-```
-yarn install
-```
-2. 编译
-```
-npm run build --force
-```
-## 安装
+<!-- This README file is going to be the one displayed on the Grafana.com website for your plugin. Uncomment and replace the content here before publishing.
 
+Remove any remaining comments before publishing as these may be displayed on Grafana.com -->
 
-1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
+# Tls-Grafana-Datasource
 
-* 使用RPM或者YUM安装的Grafana  
-插件目录是 /usr/lib/grafana/plugins：
-```
-unzip tls-grafana-datasource-main.zip -d /var/lib/grafana/plugins
-```
-* 使用.tar.gz文件安装的Grafana  
-插件目录是 {PATH_TO}/grafana-6.6.0/data/plugins：
-```
-unzip tls-grafana-datasource-main.zip -d {PATH_TO}/grafana-6.6.0/data/plugins
-```
-2. Grafana>=7.x(6.x及以下版本不需要)配置权限，允许加载未签名的Grafana插件。
-* 使用RPM或者YUM安装的Grafana  
-配置文件路径为:/etc/grafana/grafana.ini
-* 使用.tar.gz文件安装的Grafana  
-配置文件路径为:{PATH_TO}/grafana-6.6.0/conf/defaults.ini
+<!-- To help maximize the impact of your README and improve usability for users, we propose the following loose structure:
 
-设置
-```
-allow_loading_unsigned_plugins = tls-grafana-datasource
-```
-3. 重启Grafana。  
-首先，kill终止Grafana进程。然后执行重启命令
-* 使用RPM或者YUM安装的Grafana:
-```
-systemctl restart grafana-server
-```
-* 使用.tar.gz文件安装的Grafana:
-```
-./bin/grafana-server
-```
-## 使用
-目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
-1. 时间序列图既是随着时间变化的折线图。
-2. 表格是明细日志的查看。
-### 添加数据源
+**BEFORE YOU BEGIN**
+- Ensure all links are absolute URLs so that they will work when the README is displayed within Grafana and Grafana.com
+- Be inspired ✨
+  - [grafana-polystat-panel](https://github.com/grafana/grafana-polystat-panel)
+  - [volkovlabs-variable-panel](https://github.com/volkovlabs/volkovlabs-variable-panel)
 
-1. 在数据源管理面板, 添加 LogService 数据源
+**ADD SOME BADGES**
 
-2. 在 settings 面板, 设置 Url 为您日志服务endpoint,例如： https://tls-cn-beijing.volces.com
-，Access 设置为 Server(Default)
+Badges convey useful information at a glance for users whether in the Catalog or viewing the source code. You can use the generator on [Shields.io](https://shields.io/badges/dynamic-json-badge) together with the Grafana.com API
+to create dynamic badges that update automatically when you publish a new version to the marketplace.
 
-3. 设置 Region、Topic参数,以及账号的AccessKeyId
-,设置 AccessId 和 AccessKeySecret。
+- For the logo field use 'grafana'.
+- Examples (label: query)
+  - Downloads: $.downloads
+  - Catalog Version: $.version
+  - Grafana Dependency: $.grafanaDependency
+  - Signature Type: $.versionSignatureType
 
-4. 设置完成后，点击保存可以测试数据源是否可以访问。
-![配置数据源](./src/img/config_datasource.png)
-### 添加Dashboard
-1. 在首页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
+Full example: ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.version&url=https://grafana.com/api/plugins/grafana-polystat-panel&label=Marketplace&prefix=v&color=F47A20)
 
-2. 单击Dashboard右上角的设置，添加变量。
+Consider other [badges](https://shields.io/badges) as you feel appropriate for your project.
 
-* 添加时间变量，Name为myinterval,Type选择Interval，选择Auto Option。
-  ![配置数据源](./src/img/varible_interval.png)
+## Overview / Introduction
+Provide one or more paragraphs as an introduction to your plugin to help users understand why they should use it.
 
-* 除了Grafana支持的变量类型，TLS支持了从Topic动态获取数据，在下拉菜单进行筛选。例如日志内容中有endpoint字段，图表可以根据endpoint的选择值动态变化。变量配置如下图所示：
-  Name为endpoint,Type选择Query。Data source选择刚才添加的数据源，Query输入
-```
-*|select distinct endpoint
-```
-可以开启多选Multi-value。
-3. 变量可以在检索时作为参数进行筛选，在query语句生效。interval类型变量用两个美元符号加变量名$$myinterval使用，非interval类型用$endpoint引用。
-![配置数据源](./src/img/varible_endpoint.png)
-## 添加图表
-### 时间序列图表
-1. 添加一个Panel, 在 datasource 选项, 选择刚创建的日志服务数据源。左上角的下拉菜单对应刚才添加的时间间隔和endpoint，用于查询结果的筛选。
+Consider including screenshots:
+- in [plugin.json](https://grafana.com/developers/plugin-tools/reference-plugin-json#info) include them as relative links.
+- in the README ensure they are absolute URLs.
 
-2. 在 query 输入查询语句, 查询语法与日志服务控制台相同。
+## Requirements
+List any requirements or dependencies they may need to run the plugin.
 
-```
-$endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cnt ,1 as cnt2 group by time limit 100
-```
+## Getting Started
+Provide a quick start on how to configure and use the plugin.
 
-3. X轴设置为`time` (**秒级时间戳**)
+## Documentation
+If your project has dedicated documentation available for users, provide links here. For help in following Grafana's style recommendations for technical documentation, refer to our [Writer's Toolkit](https://grafana.com/docs/writers-toolkit/).
 
-4. Y轴设置为`cnt,cnt2` (**多列用逗号分隔**)。
-   ![配置数据源](./src/img/config_panel.png)
-5. Visualization选项中图表类型可以选择，Graph、React Graph。
-   ![配置数据源](./src/img/config_panel_type.png)
-   也可以对数值精度在Axes中配置decimals参数。
-   ![配置数据源](./src/img/config_decimal.png)
-6. 配置图表的Title、Description等属性，保存即可。
-
-### 表格图表
-操作步骤与添加时间序列图表第2、3、5步略有差异，其他完全一致。
-2. Query为字段检索。
-```
-*|select endpoint,company
-```
-3. X轴设置为`table`,Y轴即是图表的表头字段。
- ![配置数据源](./src/img/config_table_query.png)
-5. Visualization选项中图表类型选择表格Table。
-
-最终结果如下图所示：
-![配置数据源](./src/img/final_result.png)
+## Contributing
+Do you want folks to contribute to the plugin or provide feedback through specific means? If so, tell them how!
+-->
