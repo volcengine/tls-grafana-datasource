@@ -1,5 +1,8 @@
 ## 火山引擎日志服务数据源
 ## 安装
+
+依赖 Grafana >= [9.x版本](https://codeload.github.com/volcengine/tls-grafana-datasource/zip/refs/heads/main) </br> 
+Grafana 6.x~8.x版本请使用[1.0版本](https://codeload.github.com/volcengine/tls-grafana-datasource/zip/refs/tags/v1.2)
 1. 克隆本项目或者下载代码压缩包到grafana插件目录下 , 然后重启grafana
 
 * 使用RPM或者YUM安装的Grafana  
@@ -33,7 +36,7 @@ systemctl restart grafana-server
 ./bin/grafana-server
 ```
 ## 使用
-目前TLS的Grafana插件支持时间序列图和表格两种形式的图表。
+目前TLS的Grafana插件支持时间序列图、表格两种形式的图表。
 1. 时间序列图既是随着时间变化的折线图。
 2. 表格是明细日志的查看。
 ### 添加数据源
@@ -48,51 +51,52 @@ systemctl restart grafana-server
 
 4. 设置完成后，点击保存可以测试数据源是否可以访问。
 ![配置数据源](./src/img/config_datasource.png)
-### 添加Dashboard
-1. 在首页创建Dashboard。![配置数据源](./src/img/create_dashboard.png)
 
-2. 单击Dashboard右上角的设置，添加变量。
-
-* 添加时间变量，Name为myinterval,Type选择Interval，选择Auto Option。
-  ![配置数据源](./src/img/varible_interval.png)
-
-* 除了Grafana支持的变量类型，TLS支持了从Topic动态获取数据，在下拉菜单进行筛选。例如日志内容中有endpoint字段，图表可以根据endpoint的选择值动态变化。变量配置如下图所示：
-  Name为endpoint,Type选择Query。Data source选择刚才添加的数据源，Query输入
-```
-*|select distinct endpoint
-```
-可以开启多选Multi-value。
-3. 变量可以在检索时作为参数进行筛选，在query语句生效。interval类型变量用两个美元符号加变量名$$myinterval使用，非interval类型用$endpoint引用。
-![配置数据源](./src/img/varible_endpoint.png)
 ## 添加图表
-### 时间序列图表
-1. 添加一个Panel, 在 datasource 选项, 选择刚创建的日志服务数据源。左上角的下拉菜单对应刚才添加的时间间隔和endpoint，用于查询结果的筛选。
-
-2. 在 query 输入查询语句, 查询语法与日志服务控制台相同。
-
+### 时间序列图表(TimeSeries)
+配置参数
 ```
-$endpoint | select (__time__ - (__time__ % $$myinterval)) as time,count(*) as cnt ,1 as cnt2 group by time limit 100
+图表类型: Time
+xcol: time
+ycol: PV, UV
+query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
 ```
-
-3. X轴设置为`time` (**秒级时间戳**)
-
-4. Y轴设置为`cnt,cnt2` (**多列用逗号分隔**)。
-   ![配置数据源](./src/img/config_panel.png)
-5. Visualization选项中图表类型可以选择，Graph、React Graph。
-   ![配置数据源](./src/img/config_panel_type.png)
-   也可以对数值精度在Axes中配置decimals参数。
-   ![配置数据源](./src/img/config_decimal.png)
-6. 配置图表的Title、Description等属性，保存即可。
-
-### 表格图表
-操作步骤与添加时间序列图表第2、3、5步略有差异，其他完全一致。
-2. Query为字段检索。
+![stat图](./src/img/time.png)
+### 单值图(Stat / Gauge)
+配置参数
 ```
-*|select endpoint,company
+图表类型: Stat
+xcol: stat
+ycol: PV, UV
+query: * | select count(1) as PV, count(distinct account_id) as UV
 ```
-3. X轴设置为`table`,Y轴即是图表的表头字段。
- ![配置数据源](./src/img/config_table_query.png)
-5. Visualization选项中图表类型选择表格Table。
+![stat图](./src/img/stat.png)
 
-最终结果如下图所示：
-![配置数据源](./src/img/final_result.png)
+### 饼图(Pie)
+配置参数
+```
+图表类型: Pie
+xcol: Pie
+ycol: status,cnt
+query: status>200 | select status,count(*) cnt group by status
+```
+![stat图](./src/img/pie.png)
+
+### 柱状图(Pie)
+配置参数
+```
+图表类型: Bar
+xcol: bar
+ycol: method,PV,UV
+query: * | select method,count(1) as PV,count(distinct account_id) as UV group by method
+```
+![柱状图](./src/img/bar.png)
+### 表格
+配置参数
+```
+图表类型: Table
+xcol: table
+ycol: time,PV,UV
+query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
+```
+![表格](./src/img/table.png)
