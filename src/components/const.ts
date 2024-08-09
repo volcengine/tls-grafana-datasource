@@ -51,4 +51,10 @@ export const xSelectOptions = [
     {label: 'Bar', value: 'bar', description: '柱状图格式 bar graph'},
 ]
 
+export const RegionOptions = [
+    {label: '北京', value: 'cn-beijing', description: ''},
+    {label: '广州', value: 'cn-guangzhou', description: ''},
+    {label: '上海', value: 'cn-shanghai', description: ''},
+    {label: '柔佛', value: 'ap-southeast-1', description: ''},
+]
 export const version = (window as any)?.grafanaBootData?.settings?.buildInfo?.version ?? '';
