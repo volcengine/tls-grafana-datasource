@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/grafana/grafana-plugin-sdk-go v0.212.0
-	github.com/volcengine/volc-sdk-golang v1.0.144
+	github.com/volcengine/volc-sdk-golang v1.0.170
 )
 
 require (

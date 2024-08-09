@@ -1,14 +1,17 @@
-import { DataSourceInstanceSettings, CoreApp } from '@grafana/data';
-import { DataSourceWithBackend } from '@grafana/runtime';
+import {CoreApp, DataSourceInstanceSettings} from '@grafana/data';
+import {DataSourceWithBackend} from '@grafana/runtime';
 
-import { TlsQuery, TlsDataSourceOptions, DEFAULT_QUERY } from './types';
+import {DEFAULT_QUERY, TlsDataSourceOptions, TlsQuery} from './types';
 
 export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
-  constructor(instanceSettings: DataSourceInstanceSettings<TlsDataSourceOptions>) {
-    super(instanceSettings);
-  }
+    data_option?: TlsDataSourceOptions;
 
-  getDefaultQuery(_: CoreApp): Partial<TlsQuery> {
-    return DEFAULT_QUERY;
-  }
+    constructor(instanceSettings: DataSourceInstanceSettings<TlsDataSourceOptions>) {
+        super(instanceSettings);
+        this.data_option = instanceSettings.jsonData
+    }
+
+    getDefaultQuery(_: CoreApp): Partial<TlsQuery> {
+        return DEFAULT_QUERY;
+    }
 }
