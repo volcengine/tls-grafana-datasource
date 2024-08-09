@@ -1,7 +1,7 @@
 import React, {ChangeEvent} from 'react';
-import {InlineField, Input, SecretInput} from '@grafana/ui';
+import {InlineField, InlineSwitch, Input} from '@grafana/ui';
 import {DataSourcePluginOptionsEditorProps} from '@grafana/data';
-import {TlsDataSourceOptions, TlsSecureJsonData} from '../types';
+import {TlsDataSourceOptions} from '../types';
 
 interface Props extends DataSourcePluginOptionsEditorProps<TlsDataSourceOptions> {
 }
@@ -23,7 +23,13 @@ export function ConfigEditor(props: Props) {
         };
         onOptionsChange({...options, jsonData});
     };
-
+    const onSelectedChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const jsonData = {
+            ...options.jsonData,
+            accountMode: event.currentTarget.checked,
+        };
+        onOptionsChange({...options, jsonData});
+    };
     const onTopicChange = (event: ChangeEvent<HTMLInputElement>) => {
         const jsonData = {
             ...options.jsonData,
@@ -39,60 +45,56 @@ export function ConfigEditor(props: Props) {
         };
         onOptionsChange({...options, jsonData});
     };
-
-    // Secure field (only sent to the backend)
     const onSecretChange = (event: ChangeEvent<HTMLInputElement>) => {
-        onOptionsChange({
-            ...options,
-            secureJsonData: {
-                accessKeySecret: event.target.value,
-            },
-        });
+        const jsonData = {
+            ...options.jsonData,
+            accessKeySecret: event.target.value,
+        };
+        onOptionsChange({...options, jsonData});
     };
 
-    const onResetSecret = () => {
-        onOptionsChange({
-            ...options,
-            secureJsonFields: {
-                ...options.secureJsonFields,
-                accessKeySecret: false,
-            },
-            secureJsonData: {
-                ...options.secureJsonData,
-                accessKeySecret: '',
-            },
-        });
-    };
-
-    const {jsonData, secureJsonFields} = options;
-    const secureJsonData = (options.secureJsonData || {}) as TlsSecureJsonData;
+    const {jsonData} = options;
 
     return (
         <div className="gf-form-group">
-            <InlineField label="Endpoint" labelWidth={16}>
-                <Input
-                    onChange={onEndpointChange}
-                    value={jsonData.endpoint || ''}
-                    placeholder="https://tls-cn-beijing.volces.com"
-                    width={65}
+            <InlineField label="AccountMode" labelWidth={16}>
+                <InlineSwitch
+                    label="AccountMode"
+                    value={jsonData.accountMode || false}
+                    onChange={onSelectedChange}
                 />
             </InlineField>
-            <InlineField label="Region" labelWidth={16}>
-                <Input
-                    onChange={onRegionChange}
-                    value={jsonData.region || ''}
-                    placeholder="cn-beijing"
-                    width={65}
-                />
-            </InlineField>
-            <InlineField label="Topic" labelWidth={16}>
-                <Input
-                    onChange={onTopicChange}
-                    value={jsonData.topic || ''}
-                    placeholder=""
-                    width={65}
-                />
-            </InlineField>
+            {
+                !jsonData.accountMode && <InlineField label="Endpoint" labelWidth={16}>
+                    <Input
+                        onChange={onEndpointChange}
+                        value={jsonData.endpoint || ''}
+                        placeholder="https://tls-cn-beijing.volces.com"
+                        width={65}
+                    />
+                </InlineField>
+            }
+            {
+                !jsonData.accountMode && <InlineField label="Region" labelWidth={16}>
+                    <Input
+                        onChange={onRegionChange}
+                        value={jsonData.region || ''}
+                        placeholder="cn-beijing"
+                        width={65}
+                    />
+                </InlineField>
+            }
+            {
+                !jsonData.accountMode && <InlineField label="Topic" labelWidth={16}>
+                    <Input
+                        onChange={onTopicChange}
+                        value={jsonData.topic || ''}
+                        placeholder=""
+                        width={65}
+                    />
+                </InlineField>
+            }
+
             <InlineField label="AccessKeyId" labelWidth={16}>
                 <Input
                     onChange={onAccessKeyChange}
@@ -102,13 +104,11 @@ export function ConfigEditor(props: Props) {
                 />
             </InlineField>
             <InlineField label="AccessKeySecret" labelWidth={16}>
-                <SecretInput
-                    isConfigured={(secureJsonFields && secureJsonFields.accessKeySecret) as boolean}
-                    value={secureJsonData.accessKeySecret || ''}
+                <Input
+                    onChange={onSecretChange}
+                    value={jsonData.accessKeySecret || ''}
                     placeholder=""
                     width={65}
-                    onReset={onResetSecret}
-                    onChange={onSecretChange}
                 />
             </InlineField>
         </div>

@@ -1,6 +1,6 @@
 {
   "name": "tls-grafana-datasource",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
@@ -62,8 +62,10 @@
     "@emotion/css": "11.10.6",
     "@grafana/data": "10.3.3",
     "@grafana/runtime": "10.3.3",
-    "@grafana/ui": "10.3.3",
     "@grafana/schema": "10.3.3",
+    "@grafana/ui": "10.3.3",
+    "aws4": "^1.13.0",
+    "crypto-js": "^4.2.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tslib": "2.5.3"

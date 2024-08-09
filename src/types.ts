@@ -5,6 +5,8 @@ export interface TlsQuery extends DataQuery {
     ycol?: string;
     xcol?: string;
     tls_query?: string;
+    region?: string;
+    topic_id?: string;
 }
 
 export const DEFAULT_QUERY: Partial<TlsQuery> = {
@@ -19,6 +21,8 @@ export interface TlsDataSourceOptions extends DataSourceJsonData {
     region?: string;
     topic?: string;
     accessKeyId?: string;
+    accessKeySecret?: string;
+    accountMode?: boolean;
 }
 
 /**
@@ -27,3 +31,4 @@ export interface TlsDataSourceOptions extends DataSourceJsonData {
 export interface TlsSecureJsonData {
     accessKeySecret?: string;
 }
+
