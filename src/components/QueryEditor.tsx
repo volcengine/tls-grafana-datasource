@@ -1,5 +1,5 @@
-import React, {ChangeEvent, useCallback, useEffect} from 'react';
-import {Card, Icon, InlineField, InlineFormLabel, Input, Select, SeriesTable, Tooltip} from '@grafana/ui';
+import React, {ChangeEvent} from 'react';
+import {AsyncSelect, Card, Icon, InlineField, InlineFormLabel, Input, Select, SeriesTable, Tooltip} from '@grafana/ui';
 import {QueryEditorProps, SelectableValue} from '@grafana/data';
 import {TlsDataSource} from '../tlsDataSource';
 import {TlsDataSourceOptions, TlsQuery} from '../types';
@@ -14,16 +14,19 @@ export const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a
 export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     const dsConf = conf.datasource.data_option
     const onXChange = (event: ChangeEvent<HTMLInputElement>) => {
-        onChange({...query, xcol: event.target.value, region: regionOption, topic_id: value || ""});
+        // @ts-ignore
+        onChange({...query, xcol: event.target.value, region: regionOption, topic_id: value?.value || ""});
     };
 
     const onYChange = (event: ChangeEvent<HTMLInputElement>) => {
-        onChange({...query, ycol: event.target.value, region: regionOption, topic_id: value || ""});
+        // @ts-ignore
+        onChange({...query, ycol: event.target.value, region: regionOption, topic_id: value?.value || ""});
         // executes the query
         onRunQuery();
     };
     const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
-        onChange({...query, tls_query: event.target.value, region: regionOption, topic_id: value || ""});
+        // @ts-ignore
+        onChange({...query, tls_query: event.target.value, region: regionOption, topic_id: value?.value || ""});
         console.log(" region option ", regionOption, value)
         onRunQuery();
     };
@@ -31,30 +34,6 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     // const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
     const [value, setValue] = React.useState();
     const [regionOption, setRegion] = React.useState<string>("cn-beijing");
-    const [topicOption, setTopic] = React.useState<any[]>();
-    const onTopicChange = useCallback(async () => {
-        const res = await new Promise<Array<SelectableValue<string>>>(async (resolve) => {
-            let tlsConfig = {
-                accessKey: dsConf?.accessKeyId,
-                secret: dsConf?.accessKeySecret,
-                url: getHostByRegion(region),
-                region: region,
-            }
-            const tlsService = new TLSService(tlsConfig, getBackendSrv());
-            const options = await tlsService.listTopics().then((result: any) =>
-                result.data.Topics.map((item: { TopicId: any; TopicName: any; }) => (
-                    {
-                        value: item.TopicId,
-                        label: `${item.TopicName} (${item.TopicId})`,
-                    })),
-            );
-            resolve(options)
-        })
-        setTopic(res)
-    }, [dsConf?.accessKeyId, dsConf?.accessKeySecret, region])
-    useEffect(() => {
-        onTopicChange()
-    }, [regionOption, onTopicChange]);
     // @ts-ignore
     return dsConf && dsConf.accountMode ? (
         <>
@@ -69,6 +48,8 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             onChange={async (v) => {
                                 onChange({...query, region: v.value});
                                 setRegion(v.value || "cn-beijing")
+                                // @ts-ignore
+                                setValue({label: "", value: ""});
                             }
                             }
                         />
@@ -78,14 +59,43 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                     <div className="topic-label">
                     </div>
                 </InlineField>
-                <Select
+                <AsyncSelect
                     width={50}
-                    options={topicOption}
+                    loadOptions={
+                        (filterStr: string) => {
+                            return new Promise<Array<SelectableValue<string>>>(async (resolve) => {
+                                let key_id, key_name;
+                                if (filterStr && filterStr.length > 0) {
+                                    if (uuidRegex.test(filterStr)) {
+                                        key_id = filterStr;
+                                    } else {
+                                        key_name = filterStr;
+                                    }
+                                }
+                                let tlsConfig = {
+                                    accessKey: dsConf?.accessKeyId,
+                                    secret: dsConf?.accessKeySecret,
+                                    url: getHostByRegion(region),
+                                    region: region,
+                                }
+                                const tlsService = new TLSService(tlsConfig, getBackendSrv());
+                                const options = await tlsService.listTopics(key_id, key_name).then((result: any) =>
+                                    result.data.Topics.map((item: { TopicId: any; TopicName: any; }) => (
+                                        {
+                                            value: item.TopicId,
+                                            label: `${item.TopicName} (${item.TopicId})`,
+                                        })),
+                                );
+                                resolve(options)
+                            });
+                        }}
+                    defaultOptions
                     value={value}
-                    onChange={(e) => {
-                        setValue(e.value);
+                    onChange={(e: any) => {
+                        console.log("topic change value ", e)
+                        setValue(e);
                         onChange({...query, region: regionOption, topic_id: e.value || ""});
-                        console.log(" region option ", regionOption, value);
+                        console.log(" region option ", regionOption, value, e.value);
                         onRunQuery();
                     }
                     }/>
