@@ -52,7 +52,7 @@ systemctl restart grafana-server
 
 1. 在数据源管理面板, 添加 LogService 数据源
 
-2. 在 settings 面板, 设置 Url 为您日志服务endpoint,例如： https://tls-cn-beijing.volces.com
+2. 在 settings 面板, 设置 URL 为您日志服务endpoint,例如： https://tls-cn-beijing.volces.com
 ，Access 设置为 Server(Default)
 
 3. 设置 Region、Topic参数,以及账号的AccessKeyId
