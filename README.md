@@ -47,7 +47,8 @@ systemctl restart grafana-server
 ，Access 设置为 Server(Default)
 
 3. 设置 Region、Topic参数,以及账号的AccessKeyId
-,设置 AccessId 和 AccessKeySecret。
+,设置 AccessKeyId 和 AccessKeySecret。<br>
+注：Grafana版本在>=9.x版本，数据源创建支持AccountMode选项，只填写AccessKeyId、AccessKeySecret，在数据查询时选择region和topic。
 
 4. 设置完成后，点击保存可以测试数据源是否可以访问。
 ![配置数据源](./src/img/config_datasource.png)
@@ -62,7 +63,7 @@ ycol: PV, UV
 query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
 ```
 ![stat图](./src/img/time.png)
-如果想把一个维度爆炸为指标，可以配置为time,dimension，就可以把PV、UV指标增加为dimension_1_value*PV,dimension_1_value*UV...dimension_n_value*PV,dimension_n_value*UV，共2n个指标。目前折线数量限制2n<=100。
+动态指标：如果想把一个维度爆炸为指标，可以配置为time,dimension，就可以把PV、UV指标增加为dimension_1_value*PV,dimension_1_value*UV...dimension_n_value*PV,dimension_n_value*UV，共2n个指标。目前折线数量限制2n<=100。
 ```
 图表类型: Time
 xcol: time,dimension
