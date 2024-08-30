@@ -63,12 +63,12 @@ ycol: PV, UV
 query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
 ```
 ![stat图](./src/img/time.png)
-动态指标：如果想把一个维度爆炸为指标，可以配置为time,dimension，就可以把PV、UV指标增加为dimension_1_value*PV,dimension_1_value*UV...dimension_n_value*PV,dimension_n_value*UV，共2n个指标。目前折线数量限制2n<=100。
+动态指标：如果想把一个维度爆炸为指标，配置为x轴配置time,dimension，y轴配置为PV，UV，就可以把PV、UV指标增加为dimension_1_value*PV,dimension_1_value*UV...dimension_n_value*PV,dimension_n_value*UV，共2n个指标。目前折线数量限制2n<=100。
 ```
 图表类型: Time
 xcol: time,dimension
 ycol: PV, UV
-query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
+query: * | select (__time__ - (__time__ % 60000)) as time,dimension,count(1) as PV, count(distinct account_id) as UV group by time,dimension
 ```
 ### 单值图(Stat / Gauge)
 配置参数
