@@ -30,7 +30,12 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     }
     const onXChange = (event: ChangeEvent<HTMLInputElement>) => {
         // @ts-ignore
-        onChange({...query, xcol: event.target.value, region: regionOption, topic_id: value?.value || ""});
+        onChange({
+            ...query,
+            xcol: event.target.value,
+            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
+            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
+        });
         // @ts-ignore
         saveSelection({
             ...query,
@@ -43,7 +48,12 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
 
     const onYChange = (event: ChangeEvent<HTMLInputElement>) => {
         // @ts-ignore
-        onChange({...query, ycol: event.target.value, region: regionOption, topic_id: value?.value || ""});
+        onChange({
+            ...query,
+            ycol: event.target.value,
+            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
+            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
+        });
         // @ts-ignore
         saveSelection({
             ...query,
@@ -57,7 +67,12 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     };
     const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
         // @ts-ignore
-        onChange({...query, tls_query: event.target.value, region: regionOption, topic_id: value?.value || ""});
+        onChange({
+            ...query,
+            tls_query: event.target.value,
+            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
+            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
+        });
         // @ts-ignore
         saveSelection({
             ...query,
@@ -67,7 +82,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
             topic_label: value?.label
         });
         // @ts-ignore
-        if (value?.value) {
+        if (value?.value || dsConf?.topic) {
             onRunQuery();
         }
     };
