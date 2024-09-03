@@ -48,6 +48,12 @@ func TestMultiDimen(t *testing.T) {
 			"sum":    5,
 			"cnt":    6,
 		},
+		{
+			"time":   1722944209000,
+			"region": "sh",
+			"sum":    5,
+			"cnt":    6,
+		},
 	}
 	ds.BuildTimeSeries(logs, "time,region", []string{"cnt", "sum"})
 }
