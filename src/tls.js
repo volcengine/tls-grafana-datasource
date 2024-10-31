@@ -38,6 +38,9 @@ export class TLSService {
     }
 
     listTopics(topic_id, topic_name) {
+        if (!this.tlsConfig.region) {
+            return
+        }
         const body = {}
         const headers = {
             'ServiceName': 'TLS',
