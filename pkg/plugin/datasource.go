@@ -530,7 +530,11 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Cli
 	}
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
-	cli.SetCustomUserAgent("grafana-high-version-" + ctx.PluginVersion)
+	ua := "TLSGrafanaPluginVersion/" + ctx.PluginVersion
+	if ctx.UserAgent != nil {
+		ua += " " + ctx.UserAgent.String()
+	}
+	cli.SetCustomUserAgent(ua)
 	return config, cli, nil
 }
 
