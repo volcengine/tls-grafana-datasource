@@ -71,7 +71,8 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
             ...query,
             tls_query: event.target.value,
             region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
-            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
+            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic,
+            topic_label: dsConf && dsConf.accountMode ? value?.label || "" : dsConf?.topic
         });
         // @ts-ignore
         saveSelection({
@@ -92,6 +93,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     const [value, setValue] = React.useState<any>();
     const [regionOption, setRegion] = React.useState<string>("cn-beijing");
     const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
+    const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
     useEffect(() => {
         const data = loadSelection();
         if (data?.region) {
@@ -111,8 +113,14 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                         <Select
                             width={20}
                             menuShouldPortal
-                            options={RegionOptions}
+                            options={[...RegionOptions, ...customOptions]}
                             value={regionOption}
+                            allowCustomValue
+                            onCreateOption={(v) => {
+                                const customValue: SelectableValue<string> = { value: v, label: v };
+                                setCustomOptions([...customOptions, customValue]);
+                                setRegion(v);
+                            }}
                             defaultValue={loadSelection()?.region || "cn-beijing"}
                             onChange={async (v) => {
                                 onChange({...query, region: v.value});
@@ -166,13 +174,14 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             });
                         }}
                     defaultOptions
+                    defaultValue={value || {value: query.topic_id, label: query.topic_label}}
                     value={topicSelectOptionsRef?.current?.find((item: any) => item.value === value?.value) || {
                         value: value?.value,
                         label: value?.label,
                     }}
                     onChange={(e: any) => {
                         setValue(e);
-                        onChange({...query, region: regionOption, topic_id: e.value || ""});
+                        onChange({...query, region: regionOption, topic_id: e.value || "",topic_label: e.label || ""});
                         saveSelection({...query, region: regionOption, topic_id: e.value || "", topic_label: e?.label});
                         if (e.value) {
                             onRunQuery();
@@ -333,7 +342,7 @@ const onSelectChange = (realXCol: string) => {
 };
 
 
-function getHostByRegion(region: string | undefined) {
+export function getHostByRegion(region: string | undefined) {
     if (region && region.length > 0) {
         return "https://tls-" + region + ".volces.com"
     }
