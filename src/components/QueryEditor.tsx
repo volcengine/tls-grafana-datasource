@@ -121,7 +121,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                 setCustomOptions([...customOptions, customValue]);
                                 setRegion(v);
                             }}
-                            defaultValue={loadSelection()?.region || "cn-beijing"}
+                            defaultValue={loadSelection()?.region || query.region || "cn-beijing"}
                             onChange={async (v) => {
                                 onChange({...query, region: v.value});
                                 if (v.value !== regionOption) {
