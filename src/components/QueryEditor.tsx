@@ -33,17 +33,13 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
         onChange({
             ...query,
             xcol: event.target.value,
-            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
-            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
         });
         // @ts-ignore
         saveSelection({
             ...query,
             xcol: event.target.value,
-            region: regionOption,
-            topic_id: value?.value || "",
-            topic_label: value?.label
         });
+        onRunQuery();
     };
 
     const onYChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -51,16 +47,11 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
         onChange({
             ...query,
             ycol: event.target.value,
-            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
-            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic
         });
         // @ts-ignore
         saveSelection({
             ...query,
             ycol: event.target.value,
-            region: regionOption,
-            topic_id: value?.value || "",
-            topic_label: value?.label
         });
         // executes the query
         onRunQuery();
@@ -70,22 +61,15 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
         onChange({
             ...query,
             tls_query: event.target.value,
-            region: dsConf && dsConf.accountMode ? regionOption : dsConf?.region,
-            topic_id: dsConf && dsConf.accountMode ? value?.value || "" : dsConf?.topic,
-            topic_label: dsConf && dsConf.accountMode ? value?.label || "" : dsConf?.topic
         });
         // @ts-ignore
         saveSelection({
             ...query,
             tls_query: event.target.value,
-            region: regionOption,
-            topic_id: value?.value || "",
-            topic_label: value?.label
         });
         // @ts-ignore
-        if (value?.value || dsConf?.topic) {
-            onRunQuery();
-        }
+        onRunQuery();
+
     };
     const {ycol, xcol, tls_query} = query;
     // const {ycol, xcol, tls_query, region = "cn-beijing"} = query;
@@ -174,7 +158,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             });
                         }}
                     defaultOptions
-                    defaultValue={value || {value: query.topic_id, label: query.topic_label}}
+                    defaultValue={value || {value: query.topic_id, label: query.topic_label || query.topic_id }}
                     value={topicSelectOptionsRef?.current?.find((item: any) => item.value === value?.value) || {
                         value: value?.value,
                         label: value?.label,

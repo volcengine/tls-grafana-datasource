@@ -32,7 +32,8 @@ export const VariableQueryEditor = ({query, onChange, datasource }: VariableQuer
 
     const onQueryChange = (event: ChangeEvent<HTMLInputElement>) => {
         // @ts-ignore
-        onChange({...query, tls_query: event.target.value, region: regionOption, topic_id: value?.value || "", topic_label:value?.label || ""});
+        // onChange({...query, tls_query: event.target.value, region: regionOption, topic_id: value?.value || "", topic_label:value?.label || ""});
+        onChange({...query, tls_query: event.target.value});
     };
 
     const {tls_query, region} = query;
