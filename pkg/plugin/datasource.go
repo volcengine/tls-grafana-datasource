@@ -180,7 +180,7 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 	from := query.TimeRange.From.UnixMilli()
 	to := query.TimeRange.To.UnixMilli()
 	topicId := config.Topic
-	if len(queryInfo.TopicId) > 0 {
+	if config.AccountMode && len(queryInfo.TopicId) > 0 {
 		topicId = queryInfo.TopicId
 	}
 	resp, err := SearchLogs(cli, topicId, queryInfo.Query, from, to, 1000)
@@ -518,10 +518,12 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Client, error) {
 	config, err := LoadSettings(ctx)
 	region := config.Region
-	if regionStr != nil && len(*regionStr) > 0 {
-		region = *regionStr
-	} else if config.AccountMode {
-		region = "cn-beijing"
+	if config.AccountMode {
+		if regionStr != nil && len(*regionStr) > 0 {
+			region = *regionStr
+		} else {
+			region = "cn-beijing"
+		}
 	}
 	endpoint := GetEndpointByRegion(region)
 	if err != nil {
