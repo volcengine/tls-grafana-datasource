@@ -114,14 +114,14 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             width={20}
                             menuShouldPortal
                             options={[...RegionOptions, ...customOptions]}
-                            value={regionOption}
+                            value={query.region || regionOption}
                             allowCustomValue
                             onCreateOption={(v) => {
                                 const customValue: SelectableValue<string> = { value: v, label: v };
                                 setCustomOptions([...customOptions, customValue]);
                                 setRegion(v);
                             }}
-                            defaultValue={loadSelection()?.region || "cn-beijing"}
+                            defaultValue={query.region || loadSelection()?.region || "cn-beijing"}
                             onChange={async (v) => {
                                 onChange({...query, region: v.value});
                                 if (v.value !== regionOption) {
