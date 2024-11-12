@@ -517,18 +517,19 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 }
 func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Client, error) {
 	config, err := LoadSettings(ctx)
+	if err != nil {
+		log.DefaultLogger.Error("load config settings ", "err", err)
+		return nil, nil, err
+	}
 	region := config.Region
+	endpoint := config.Endpoint
 	if config.AccountMode {
 		if regionStr != nil && len(*regionStr) > 0 {
 			region = *regionStr
 		} else {
 			region = "cn-beijing"
 		}
-	}
-	endpoint := GetEndpointByRegion(region)
-	if err != nil {
-		log.DefaultLogger.Error("load config settings ", "err", err)
-		return nil, nil, err
+		endpoint = GetEndpointByRegion(region)
 	}
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
