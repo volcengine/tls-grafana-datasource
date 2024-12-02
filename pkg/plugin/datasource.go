@@ -28,6 +28,8 @@ var (
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
+const TlsGrafanaPluginVersion = "2.5.0"
+
 // NewDatasource creates a new datasource instance.
 func NewDatasource(_ context.Context, _ backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	return &Datasource{}, nil
@@ -543,9 +545,14 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *stri
 	}
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
-	ua := "TLSGrafanaPluginVersion/" + ctx.PluginVersion
+	ua := "TLSGrafanaPluginVersion/"
+	if ctx.PluginVersion != "" {
+		ua += ctx.PluginVersion
+	} else {
+		ua += TlsGrafanaPluginVersion
+	}
 	if grafanaVersion != nil {
-		ua += " " + *grafanaVersion
+		ua += " Grafana/" + *grafanaVersion
 	} else if ctx.UserAgent != nil {
 		ua += " " + ctx.UserAgent.String()
 	}
