@@ -327,8 +327,9 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	if xLens == 0 {
 		return frames
 	}
-	dimKeys := make(map[string]bool, 0)
+	dimKeys := make(map[string]bool, 0) // 线条名
 	multiDimen := xLens > 1
+	// 获取线条名加入dimKeys
 	if multiDimen {
 		for _, tlsLog := range logs {
 			xValues := getXValues(tlsLog, xcols)
@@ -344,6 +345,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	}
 
 	timeCol := xcols[0]
+	// 按时间排序
 	SortLogs(logs, timeCol)
 	log.DefaultLogger.Info("build time series", "logs", logs, "xcol", xcol, "ycols")
 	frame := data.NewFrame("time_series")
@@ -355,17 +357,17 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 			}
 		}
 	}
-	fieldMap := make(map[string][]float64)
+	fieldMap := make(map[string]map[time.Time]float64)
 	if multiDimen {
 		for k, _ := range dimKeys {
 			if k != timeCol {
-				fieldMap[k] = make([]float64, 0)
+				fieldMap[k] = map[time.Time]float64{}
 			}
 		}
 	} else {
 		for _, v := range ycols {
 			if v != timeCol {
-				fieldMap[v] = make([]float64, 0)
+				fieldMap[v] = map[time.Time]float64{}
 			}
 		}
 	}
@@ -385,8 +387,13 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 						log.DefaultLogger.Info("BuildTimeSeries skip key", "key", key, "val", val)
 						continue
 					}
+					t := float64(0)
+					if t, err = parseNumberFloat(tlsLog[xcols[0]]); err != nil {
+						log.DefaultLogger.Info("BuildTimeSeries skip key", "key", tlsLog[xcols[0]])
+						continue
+					}
 					if _, ok := fieldMap[key]; ok {
-						fieldMap[key] = append(fieldMap[key], res)
+						fieldMap[key][time.UnixMilli(int64(t))] = res
 					}
 				}
 			}
@@ -397,8 +404,8 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 				log.DefaultLogger.Info("BuildTimeSeries skip key", "key", k)
 				continue
 			}
+			msec := int64(res)
 			if xcol != "" && k == timeCol {
-				msec := int64(res)
 				if multiDimen && timeDict[msec] {
 					continue
 				}
@@ -406,7 +413,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 				timeDict[msec] = true
 			} else if !multiDimen {
 				if _, ok := fieldMap[k]; ok {
-					fieldMap[k] = append(fieldMap[k], res)
+					fieldMap[k][time.UnixMilli(msec)] = res
 				}
 			}
 		}
@@ -418,13 +425,16 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	}
 	slices.Sort(sortFields)
 	for _, f := range sortFields {
-		v := fieldMap[f]
-		if len(v) < lenTime {
-			for i := len(v); i < lenTime; i++ {
-				v = append(v, float64(0))
+		timeValueMap := fieldMap[f]
+		var values []float64
+		for _, t := range times {
+			if v, ok := timeValueMap[t]; ok {
+				values = append(values, v)
+			} else {
+				values = append(values, float64(0))
 			}
 		}
-		frame.Fields = append(frame.Fields, data.NewField(f, nil, v))
+		frame.Fields = append(frame.Fields, data.NewField(f, nil, values))
 	}
 	if lenTime > 0 {
 		frame.Fields = append(frame.Fields, data.NewField("time", nil, times))
