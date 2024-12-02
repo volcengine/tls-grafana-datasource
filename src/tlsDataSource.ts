@@ -7,6 +7,8 @@ import {DEFAULT_QUERY, TlsDataSourceOptions, TlsQuery, VariableQuery} from './ty
 import {TLSService} from "../tls"
 import _ from "lodash";
 
+export const GrafanaVersion = (window as any).grafanaBootData?.settings?.buildInfo?.version || '0.0.0';
+
 export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
     data_option?: TlsDataSourceOptions;
 
@@ -22,6 +24,7 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
     query(options: DataQueryRequest<TlsQuery>) {
         options.targets.forEach((q: TlsQuery) => {
             q.tls_query = replaceQueryParameters(q, options);
+            q.grafana_version = GrafanaVersion
         });
         return super.query(options);
     }

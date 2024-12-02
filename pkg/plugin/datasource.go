@@ -112,7 +112,7 @@ func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequ
 func (d *Datasource) checkApi(ctx *backend.PluginContext) (backend.HealthStatus, error) {
 	end := time.Now().UnixMilli()
 	start := end - 60000
-	config, cli, err := LoadCli(ctx, nil)
+	config, cli, err := LoadCli(ctx, nil, nil)
 	if err != nil {
 		return backend.HealthStatusError, err
 	}
@@ -166,7 +166,7 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 		}
 		return
 	}
-	config, cli, err := LoadCli(ctx, &queryInfo.Region)
+	config, cli, err := LoadCli(ctx, &queryInfo.Region, &queryInfo.GrafanaVersion)
 	if err != nil {
 		log.DefaultLogger.Error("Unmarshal queryInfo", "refId", refId, "error", err)
 		response.Error = err
@@ -515,7 +515,7 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 	log.DefaultLogger.Info("list sdk resp ", "resp", resp, "err", err)
 	return resp, err
 }
-func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Client, error) {
+func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *string) (*LogSource, sdk.Client, error) {
 	config, err := LoadSettings(ctx)
 	if err != nil {
 		log.DefaultLogger.Error("load config settings ", "err", err)
@@ -534,7 +534,9 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Cli
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
 	ua := "TLSGrafanaPluginVersion/" + ctx.PluginVersion
-	if ctx.UserAgent != nil {
+	if grafanaVersion != nil {
+		ua += " " + *grafanaVersion
+	} else if ctx.UserAgent != nil {
 		ua += " " + ctx.UserAgent.String()
 	}
 	cli.SetCustomUserAgent(ua)
