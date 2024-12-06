@@ -2,12 +2,11 @@ import {CoreApp, DataQueryRequest, DataSourceInstanceSettings} from '@grafana/da
 import {DataSourceWithBackend, getBackendSrv, getTemplateSrv} from '@grafana/runtime';
 
 import {DEFAULT_QUERY, TlsDataSourceOptions, TlsQuery, VariableQuery} from './types';
+import {version} from "./components/const";
 
 // @ts-ignore
 import {TLSService} from "../tls"
 import _ from "lodash";
-
-const GrafanaVersion = (window as any).grafanaBootData?.settings?.buildInfo?.version || '0.0.0';
 
 export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
     data_option?: TlsDataSourceOptions;
@@ -24,7 +23,7 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
     query(options: DataQueryRequest<TlsQuery>) {
         options.targets.forEach((q: TlsQuery) => {
             q.tls_query = replaceQueryParameters(q, options);
-            q.grafana_version = GrafanaVersion
+            q.grafana_version = version
         });
         return super.query(options);
     }
