@@ -378,6 +378,11 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	times := make([]time.Time, 0)
 	timeDict := make(map[int64]bool, 0)
 	for _, tlsLog := range logs {
+		t := float64(0)
+		if t, err = parseNumberFloat(tlsLog[xcols[0]]); err != nil {
+			log.DefaultLogger.Info("BuildTimeSeries skip key", "key", tlsLog[xcols[0]])
+			continue
+		}
 		// x轴包含维度，做多维转换。比如把x:[time,region]y:[cnt,sum]转换为x:[time],y:[sum*gz,sum*sh,cnt*gz,cnt*sh]
 		if multiDimen {
 			xValues := getXValues(tlsLog, xcols)
@@ -387,11 +392,6 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 					res := float64(0)
 					if res, err = parseNumberFloat(val); err != nil {
 						log.DefaultLogger.Info("BuildTimeSeries skip key", "key", key, "val", val)
-						continue
-					}
-					t := float64(0)
-					if t, err = parseNumberFloat(tlsLog[xcols[0]]); err != nil {
-						log.DefaultLogger.Info("BuildTimeSeries skip key", "key", tlsLog[xcols[0]])
 						continue
 					}
 					if _, ok := fieldMap[key]; ok {
@@ -415,7 +415,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 				timeDict[msec] = true
 			} else if !multiDimen {
 				if _, ok := fieldMap[k]; ok {
-					fieldMap[k][time.UnixMilli(msec)] = res
+					fieldMap[k][time.UnixMilli(int64(t))] = res
 				}
 			}
 		}
