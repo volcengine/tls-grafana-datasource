@@ -28,6 +28,8 @@ var (
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
+const TlsGrafanaPluginVersion = "2.5.0"
+
 // NewDatasource creates a new datasource instance.
 func NewDatasource(_ context.Context, _ backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	return &Datasource{}, nil
@@ -112,7 +114,7 @@ func (d *Datasource) CheckHealth(_ context.Context, req *backend.CheckHealthRequ
 func (d *Datasource) checkApi(ctx *backend.PluginContext) (backend.HealthStatus, error) {
 	end := time.Now().UnixMilli()
 	start := end - 60000
-	config, cli, err := LoadCli(ctx, nil)
+	config, cli, err := LoadCli(ctx, nil, nil)
 	if err != nil {
 		return backend.HealthStatusError, err
 	}
@@ -166,7 +168,7 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 		}
 		return
 	}
-	config, cli, err := LoadCli(ctx, &queryInfo.Region)
+	config, cli, err := LoadCli(ctx, &queryInfo.Region, &queryInfo.GrafanaVersion)
 	if err != nil {
 		log.DefaultLogger.Error("Unmarshal queryInfo", "refId", refId, "error", err)
 		response.Error = err
@@ -327,8 +329,9 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	if xLens == 0 {
 		return frames
 	}
-	dimKeys := make(map[string]bool, 0)
+	dimKeys := make(map[string]bool, 0) // 线条名
 	multiDimen := xLens > 1
+	// 获取线条名加入dimKeys
 	if multiDimen {
 		for _, tlsLog := range logs {
 			xValues := getXValues(tlsLog, xcols)
@@ -344,6 +347,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	}
 
 	timeCol := xcols[0]
+	// 按时间排序
 	SortLogs(logs, timeCol)
 	log.DefaultLogger.Info("build time series", "logs", logs, "xcol", xcol, "ycols")
 	frame := data.NewFrame("time_series")
@@ -355,17 +359,17 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 			}
 		}
 	}
-	fieldMap := make(map[string][]float64)
+	fieldMap := make(map[string]map[time.Time]float64)
 	if multiDimen {
 		for k, _ := range dimKeys {
 			if k != timeCol {
-				fieldMap[k] = make([]float64, 0)
+				fieldMap[k] = map[time.Time]float64{}
 			}
 		}
 	} else {
 		for _, v := range ycols {
 			if v != timeCol {
-				fieldMap[v] = make([]float64, 0)
+				fieldMap[v] = map[time.Time]float64{}
 			}
 		}
 	}
@@ -374,6 +378,11 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	times := make([]time.Time, 0)
 	timeDict := make(map[int64]bool, 0)
 	for _, tlsLog := range logs {
+		t := float64(0)
+		if t, err = parseNumberFloat(tlsLog[xcols[0]]); err != nil {
+			log.DefaultLogger.Info("BuildTimeSeries skip key", "key", tlsLog[xcols[0]])
+			continue
+		}
 		// x轴包含维度，做多维转换。比如把x:[time,region]y:[cnt,sum]转换为x:[time],y:[sum*gz,sum*sh,cnt*gz,cnt*sh]
 		if multiDimen {
 			xValues := getXValues(tlsLog, xcols)
@@ -386,7 +395,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 						continue
 					}
 					if _, ok := fieldMap[key]; ok {
-						fieldMap[key] = append(fieldMap[key], res)
+						fieldMap[key][time.UnixMilli(int64(t))] = res
 					}
 				}
 			}
@@ -397,8 +406,8 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 				log.DefaultLogger.Info("BuildTimeSeries skip key", "key", k)
 				continue
 			}
+			msec := int64(res)
 			if xcol != "" && k == timeCol {
-				msec := int64(res)
 				if multiDimen && timeDict[msec] {
 					continue
 				}
@@ -406,7 +415,7 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 				timeDict[msec] = true
 			} else if !multiDimen {
 				if _, ok := fieldMap[k]; ok {
-					fieldMap[k] = append(fieldMap[k], res)
+					fieldMap[k][time.UnixMilli(int64(t))] = res
 				}
 			}
 		}
@@ -418,13 +427,16 @@ func (d *Datasource) BuildTimeSeries(logs []map[string]interface{}, xcol string,
 	}
 	slices.Sort(sortFields)
 	for _, f := range sortFields {
-		v := fieldMap[f]
-		if len(v) < lenTime {
-			for i := len(v); i < lenTime; i++ {
-				v = append(v, float64(0))
+		timeValueMap := fieldMap[f]
+		var values []float64
+		for _, t := range times {
+			if v, ok := timeValueMap[t]; ok {
+				values = append(values, v)
+			} else {
+				values = append(values, float64(0))
 			}
 		}
-		frame.Fields = append(frame.Fields, data.NewField(f, nil, v))
+		frame.Fields = append(frame.Fields, data.NewField(f, nil, values))
 	}
 	if lenTime > 0 {
 		frame.Fields = append(frame.Fields, data.NewField("time", nil, times))
@@ -515,7 +527,7 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 	log.DefaultLogger.Info("list sdk resp ", "resp", resp, "err", err)
 	return resp, err
 }
-func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Client, error) {
+func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *string) (*LogSource, sdk.Client, error) {
 	config, err := LoadSettings(ctx)
 	if err != nil {
 		log.DefaultLogger.Error("load config settings ", "err", err)
@@ -533,8 +545,15 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string) (*LogSource, sdk.Cli
 	}
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
-	ua := "TLSGrafanaPluginVersion/" + ctx.PluginVersion
-	if ctx.UserAgent != nil {
+	ua := "TLSGrafanaPluginVersion/"
+	if ctx.PluginVersion != "" {
+		ua += ctx.PluginVersion
+	} else {
+		ua += TlsGrafanaPluginVersion
+	}
+	if grafanaVersion != nil {
+		ua += " Grafana/" + *grafanaVersion
+	} else if ctx.UserAgent != nil {
 		ua += " " + ctx.UserAgent.String()
 	}
 	cli.SetCustomUserAgent(ua)

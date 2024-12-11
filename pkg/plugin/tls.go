@@ -22,11 +22,12 @@ type Result struct {
 }
 
 type QueryInfo struct {
-	Query   string `json:"tls_query"`
-	Xcol    string `json:"xcol"`
-	Ycol    string `json:"ycol"`
-	Region  string `json:"region"`
-	TopicId string `json:"topic_id"`
+	Query          string `json:"tls_query"`
+	Xcol           string `json:"xcol"`
+	Ycol           string `json:"ycol"`
+	Region         string `json:"region"`
+	TopicId        string `json:"topic_id"`
+	GrafanaVersion string `json:"grafana_version"`
 }
 
 func LoadSettings(ctx *backend.PluginContext) (*LogSource, error) {
