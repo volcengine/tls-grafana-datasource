@@ -8,6 +8,7 @@ export interface TlsQuery extends DataQuery {
     region?: string;
     topic_id?: string;
     topic_label?: string;
+    grafana_version?: string;
 }
 
 export const DEFAULT_QUERY: Partial<TlsQuery> = {
