@@ -33,3 +33,4 @@ e2e-results/
 
 .eslintcache
 build/
+vendor

@@ -60,5 +60,7 @@ export const RegionOptions = [
     {label: '大同', value: 'cn-datong', description: ''},
     {label: '香港', value: 'cn-hongkong', description: ''},
     {label: '乌兰察布', value: 'cn-wulanchabu', description: ''},
+    {label: '雅加达', value: 'ap-southeast-3', description: ''},
+    {label: '新加坡', value: 'ap-southeast-2', description: ''},
 ]
 export const version = (window as any)?.grafanaBootData?.settings?.buildInfo?.version ?? '';

@@ -64,26 +64,23 @@ export function ConfigEditor(props: Props) {
                     onChange={onSelectedChange}
                 />
             </InlineField>
-            {
-                !jsonData.accountMode && <InlineField label="Endpoint" labelWidth={16}>
-                    <Input
-                        onChange={onEndpointChange}
-                        value={jsonData.endpoint || ''}
-                        placeholder="https://tls-cn-beijing.volces.com"
-                        width={65}
-                    />
-                </InlineField>
-            }
-            {
-                !jsonData.accountMode && <InlineField label="Region" labelWidth={16}>
-                    <Input
-                        onChange={onRegionChange}
-                        value={jsonData.region || ''}
-                        placeholder="cn-beijing"
-                        width={65}
-                    />
-                </InlineField>
-            }
+            <InlineField label="Endpoint" labelWidth={16}>
+                <Input
+                    onChange={onEndpointChange}
+                    value={jsonData.endpoint || ''}
+                    placeholder=""
+                    width={65}
+                />
+            </InlineField>
+            <InlineField label="Region" labelWidth={16}>
+                <Input
+                    onChange={onRegionChange}
+                    value={jsonData.region || ''}
+                    placeholder=""
+                    width={65}
+                />
+            </InlineField>
+
             {
                 !jsonData.accountMode && <InlineField label="Topic" labelWidth={16}>
                     <Input
