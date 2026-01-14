@@ -335,7 +335,7 @@ const onSelectChange = (realXCol: string) => {
 
 export function getHostByRegion(region: string | undefined, configRegion: string | undefined, endpoint: string | undefined) {
     if (region && region.length > 0) {
-        if (region != configRegion) {
+        if (region !== configRegion) {
             return "https://tls-" + region + ".volces.com"
         }
     }
