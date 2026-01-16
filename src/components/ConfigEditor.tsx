@@ -68,7 +68,7 @@ export function ConfigEditor(props: Props) {
                 <Input
                     onChange={onEndpointChange}
                     value={jsonData.endpoint || ''}
-                    placeholder=""
+                    placeholder="非Account模式或Account模式需要自定义接入点时填写"
                     width={65}
                 />
             </InlineField>
@@ -76,7 +76,7 @@ export function ConfigEditor(props: Props) {
                 <Input
                     onChange={onRegionChange}
                     value={jsonData.region || ''}
-                    placeholder=""
+                    placeholder="非Account模式或Account模式需要自定义接入点时填写"
                     width={65}
                 />
             </InlineField>
