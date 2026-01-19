@@ -119,6 +119,10 @@ func (d *Datasource) checkApi(ctx *backend.PluginContext) (backend.HealthStatus,
 		return backend.HealthStatusError, err
 	}
 	if config.AccountMode {
+		if (config.Region == "") != (config.Endpoint == "") {
+			return backend.HealthStatusError, errors.New("region and endpoint must both be provided or both be empty")
+		}
+
 		resp, err := ListProjects(cli)
 		if err != nil {
 			log.DefaultLogger.Error("CheckHealth error", "req_id", resp.CommonResponse.RequestID, "err", err)
