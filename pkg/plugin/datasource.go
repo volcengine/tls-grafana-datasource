@@ -203,10 +203,17 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 	if resp.Analysis {
 		logs = resp.AnalysisResult.Data
 	}
+
+	xcol := strings.TrimSpace(queryInfo.Xcol)
+	ycols := strings.Split(strings.TrimSpace(queryInfo.Ycol), ",")
 	//2.构造结果
 	if len(logs) == 0 {
 		log.DefaultLogger.Warn("SearchLogs resp nil")
-		response.Frames = data.Frames{}
+		frame := buildFrameWhenLogsEmpty(resp, xcol)
+
+		frames := data.Frames{}
+		frames = append(frames, frame)
+		response.Frames = frames
 		ch <- Result{
 			refId:        refId,
 			dataResponse: response,
@@ -214,8 +221,6 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 		return
 	}
 
-	xcol := strings.TrimSpace(queryInfo.Xcol)
-	ycols := strings.Split(strings.TrimSpace(queryInfo.Ycol), ",")
 	res := d.buildDataFrame(xcol, ycols, logs)
 	response.Frames = res
 	ch <- Result{
@@ -605,4 +610,38 @@ func parseNumberFloat(value interface{}) (float64, error) {
 	}
 	log.DefaultLogger.Error("Parse number skip unknown type", "value", value)
 	return 0, errors.New("unknown type")
+}
+
+func buildFrameWhenLogsEmpty(resp *sdk.SearchLogsResponse, xcol string) *data.Frame {
+	frame := data.NewFrame("response")
+	if resp.Analysis {
+		indexMap := make(map[string]interface{})
+		for key, val := range resp.AnalysisResult.Type {
+			switch val {
+			case "text":
+				indexMap[key] = []string{}
+			case "long":
+				indexMap[key] = []int64{}
+			case "double":
+				indexMap[key] = []float64{}
+			default:
+				indexMap[key] = []string{}
+			}
+		}
+
+		for _, schema := range resp.AnalysisResult.Schema {
+			v, ok := indexMap[schema]
+			if !ok {
+				continue
+			}
+
+			if xcol != "" && xcol == schema {
+				v = []time.Time{}
+			}
+
+			frame.Fields = append(frame.Fields, data.NewField(schema, nil, v))
+		}
+	}
+
+	return frame
 }
