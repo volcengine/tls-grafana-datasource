@@ -16,7 +16,7 @@ interface VariableQueryProps {
     datasource: TlsDataSource;
 }
 
-export const VariableQueryEditor = ({query, onChange, datasource }: VariableQueryProps) => {
+export const VariableQueryEditor = ({query, onChange, datasource}: VariableQueryProps) => {
     const [state, setState] = useState(query);
     const dsConf = datasource.data_option
 
@@ -43,18 +43,27 @@ export const VariableQueryEditor = ({query, onChange, datasource }: VariableQuer
     const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
 
     return dsConf && dsConf.accountMode ? (
-    <>
+        <>
             <div className="gf-form-inline">
                 <InlineField label="region" labelWidth={12}>
                     <div className="region-selector">
                         <Select
                             width={20}
                             menuShouldPortal
-                            options={[...RegionOptions, ...customOptions]}
+                            // options={[...RegionOptions, ...customOptions]}
+                            options={
+                                dsConf.region && dsConf.region.trim() !== ''
+                                    ? [
+                                        // 只用 dsConf.region 创建一个选项
+                                        { value: dsConf.region, label: dsConf.region },
+                                        ...customOptions
+                                    ]
+                                    : [...RegionOptions, ...customOptions] // 保持原来的
+                            }
                             value={query.region}
                             allowCustomValue
                             onCreateOption={(v) => {
-                                const customValue: SelectableValue<string> = { value: v, label: v };
+                                const customValue: SelectableValue<string> = {value: v, label: v};
                                 setCustomOptions([...customOptions, customValue]);
                                 setRegion(v);
                             }}
@@ -65,7 +74,7 @@ export const VariableQueryEditor = ({query, onChange, datasource }: VariableQuer
                                     setValue({label: "", value: ""});
                                 }
                                 setRegion(v.value || "cn-beijing")
-                                }
+                            }
                             }
                         />
                     </div>
@@ -91,7 +100,7 @@ export const VariableQueryEditor = ({query, onChange, datasource }: VariableQuer
                                 let tlsConfig = {
                                     accessKey: dsConf?.accessKeyId,
                                     secret: dsConf?.accessKeySecret,
-                                    url: getHostByRegion(region),
+                                    url: getHostByRegion(region, dsConf?.region, dsConf?.endpoint),
                                     region: region,
                                 }
                                 const tlsService = new TLSService(tlsConfig, getBackendSrv());
@@ -124,12 +133,12 @@ export const VariableQueryEditor = ({query, onChange, datasource }: VariableQuer
                     Query
                 </InlineFormLabel>
                 <div style={{width: '100%'}}>
-                    <Input  placeholder={`* | select distinct __container_ip__`}
-                            onChange={onQueryChange} value={tls_query || ''}/>
+                    <Input placeholder={`* | select distinct __container_ip__`}
+                           onChange={onQueryChange} value={tls_query || ''}/>
                 </div>
             </div>
         </>
-        ) : (
+    ) : (
         <>
             <div className="gf-form">
                 <span className="gf-form-label width-10">Query</span>

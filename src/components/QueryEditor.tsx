@@ -97,11 +97,19 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                         <Select
                             width={20}
                             menuShouldPortal
-                            options={[...RegionOptions, ...customOptions]}
+                            options={
+                                dsConf.region && dsConf.region.trim() !== ''
+                                    ? [
+                                        // 只用 dsConf.region 创建一个选项
+                                        { value: dsConf.region, label: dsConf.region },
+                                        ...customOptions
+                                    ]
+                                    : [...RegionOptions, ...customOptions] // 保持原来的
+                            }
                             value={query.region || regionOption}
                             allowCustomValue
                             onCreateOption={(v) => {
-                                const customValue: SelectableValue<string> = { value: v, label: v };
+                                const customValue: SelectableValue<string> = {value: v, label: v};
                                 setCustomOptions([...customOptions, customValue]);
                                 setRegion(v);
                             }}
@@ -142,7 +150,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                 let tlsConfig = {
                                     accessKey: dsConf?.accessKeyId,
                                     secret: dsConf?.accessKeySecret,
-                                    url: getHostByRegion(regionOption),
+                                    url: getHostByRegion(regionOption, dsConf?.region, dsConf?.endpoint),
                                     region: regionOption,
                                 }
                                 const tlsService = new TLSService(tlsConfig, getBackendSrv());
@@ -158,14 +166,14 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             });
                         }}
                     defaultOptions
-                    defaultValue={value || {value: query.topic_id, label: query.topic_label || query.topic_id }}
+                    defaultValue={value || {value: query.topic_id, label: query.topic_label || query.topic_id}}
                     value={topicSelectOptionsRef?.current?.find((item: any) => item.value === value?.value) || {
                         value: value?.value,
                         label: value?.label,
                     }}
                     onChange={(e: any) => {
                         setValue(e);
-                        onChange({...query, region: regionOption, topic_id: e.value || "",topic_label: e.label || ""});
+                        onChange({...query, region: regionOption, topic_id: e.value || "", topic_label: e.label || ""});
                         saveSelection({...query, region: regionOption, topic_id: e.value || "", topic_label: e?.label});
                         if (e.value) {
                             onRunQuery();
@@ -325,11 +333,13 @@ const onSelectChange = (realXCol: string) => {
     return 'custom';
 };
 
-
-export function getHostByRegion(region: string | undefined) {
+export function getHostByRegion(region: string | undefined, configRegion: string | undefined, endpoint: string | undefined) {
     if (region && region.length > 0) {
-        return "https://tls-" + region + ".volces.com"
+        if (region !== configRegion) {
+            return "https://tls-" + region + ".volces.com"
+        }
     }
-    return region
+
+    return endpoint
 }
 

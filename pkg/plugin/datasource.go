@@ -119,12 +119,16 @@ func (d *Datasource) checkApi(ctx *backend.PluginContext) (backend.HealthStatus,
 		return backend.HealthStatusError, err
 	}
 	if config.AccountMode {
+		if (config.Region == "") != (config.Endpoint == "") {
+			return backend.HealthStatusError, errors.New("region and endpoint must both be provided or both be empty")
+		}
+
 		resp, err := ListProjects(cli)
 		if err != nil {
 			log.DefaultLogger.Error("CheckHealth error", "req_id", resp.CommonResponse.RequestID, "err", err)
 			return backend.HealthStatusError, err
 		}
-		log.DefaultLogger.Info("CheckHealth list porjects suc", "req_id", resp.CommonResponse.RequestID)
+		log.DefaultLogger.Info("CheckHealth list projects suc", "req_id", resp.CommonResponse.RequestID)
 		return backend.HealthStatusOk, nil
 	}
 	resp, err := SearchLogs(cli, config.Topic, "*", start, end, 1)
@@ -199,10 +203,17 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 	if resp.Analysis {
 		logs = resp.AnalysisResult.Data
 	}
+
+	xcol := strings.TrimSpace(queryInfo.Xcol)
+	ycols := strings.Split(strings.TrimSpace(queryInfo.Ycol), ",")
 	//2.构造结果
 	if len(logs) == 0 {
 		log.DefaultLogger.Warn("SearchLogs resp nil")
-		response.Frames = data.Frames{}
+		frame := buildFrameWhenLogsEmpty(resp, xcol)
+
+		frames := data.Frames{}
+		frames = append(frames, frame)
+		response.Frames = frames
 		ch <- Result{
 			refId:        refId,
 			dataResponse: response,
@@ -210,8 +221,6 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 		return
 	}
 
-	xcol := strings.TrimSpace(queryInfo.Xcol)
-	ycols := strings.Split(strings.TrimSpace(queryInfo.Ycol), ",")
 	res := d.buildDataFrame(xcol, ycols, logs)
 	response.Frames = res
 	ch <- Result{
@@ -527,22 +536,33 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 	log.DefaultLogger.Info("list sdk resp ", "resp", resp, "err", err)
 	return resp, err
 }
+
 func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *string) (*LogSource, sdk.Client, error) {
 	config, err := LoadSettings(ctx)
 	if err != nil {
 		log.DefaultLogger.Error("load config settings ", "err", err)
 		return nil, nil, err
 	}
+
 	region := config.Region
 	endpoint := config.Endpoint
+	// account模式也需要填写region和endpoint（可以显示设定某个region使用内网地址）
 	if config.AccountMode {
 		if regionStr != nil && len(*regionStr) > 0 {
-			region = *regionStr
-		} else {
-			region = "cn-beijing"
+			// 如果查询region不是当前配置的region, 那么走默认的拼接域名，如果查询region 和当前region相同，走配置的域名
+			if *regionStr != config.Region {
+				region = *regionStr
+				endpoint = GetEndpointByRegion(region)
+			}
 		}
-		endpoint = GetEndpointByRegion(region)
+
+		// check health
+		if regionStr == nil && region == "" {
+			region = "cn-beijing"
+			endpoint = GetEndpointByRegion(region)
+		}
 	}
+
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
 	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
 	ua := "TLSGrafanaPluginVersion/"
@@ -590,4 +610,44 @@ func parseNumberFloat(value interface{}) (float64, error) {
 	}
 	log.DefaultLogger.Error("Parse number skip unknown type", "value", value)
 	return 0, errors.New("unknown type")
+}
+
+func buildFrameWhenLogsEmpty(resp *sdk.SearchLogsResponse, xcol string) *data.Frame {
+	frame := data.NewFrame("response")
+	xcols := strings.Split(xcol, ",")
+	var x string
+	if len(xcols) > 0 {
+		x = xcols[0]
+	}
+
+	if resp.Analysis {
+		indexMap := make(map[string]interface{})
+		for key, val := range resp.AnalysisResult.Type {
+			switch val {
+			case "text":
+				indexMap[key] = []string{}
+			case "long":
+				indexMap[key] = []int64{}
+			case "double":
+				indexMap[key] = []float64{}
+			default:
+				indexMap[key] = []string{}
+			}
+		}
+
+		for _, schema := range resp.AnalysisResult.Schema {
+			v, ok := indexMap[schema]
+			if !ok {
+				continue
+			}
+
+			if x != "" && x == schema {
+				v = []time.Time{}
+			}
+
+			frame.Fields = append(frame.Fields, data.NewField(schema, nil, v))
+		}
+	}
+
+	return frame
 }

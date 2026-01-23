@@ -57,35 +57,48 @@ export function ConfigEditor(props: Props) {
 
     return (
         <div className="gf-form-group">
-            <InlineField label="AccountMode" labelWidth={16}>
+            <InlineField label="AccountMode" labelWidth={17}>
                 <InlineSwitch
                     label="AccountMode"
                     value={jsonData.accountMode || false}
                     onChange={onSelectedChange}
                 />
             </InlineField>
+            <InlineField label="AccessKeyId *" labelWidth={17}>
+                <Input
+                    onChange={onAccessKeyChange}
+                    value={jsonData.accessKeyId || ''}
+                    placeholder=""
+                    width={65}
+                />
+            </InlineField>
+            <InlineField label="AccessKeySecret *" labelWidth={17}>
+                <Input
+                    type="password"
+                    onChange={onSecretChange}
+                    value={jsonData.accessKeySecret || ''}
+                    placeholder=""
+                    width={65}
+                />
+            </InlineField>
+            <InlineField label="Endpoint" labelWidth={17}>
+                <Input
+                    onChange={onEndpointChange}
+                    value={jsonData.endpoint || ''}
+                    placeholder="非Account模式或Account模式需要自定义接入点时需要填写"
+                    width={65}
+                />
+            </InlineField>
+            <InlineField label="Region" labelWidth={17}>
+                <Input
+                    onChange={onRegionChange}
+                    value={jsonData.region || ''}
+                    placeholder="非Account模式或Account模式需要自定义接入点时需要填写"
+                    width={65}
+                />
+            </InlineField>
             {
-                !jsonData.accountMode && <InlineField label="Endpoint" labelWidth={16}>
-                    <Input
-                        onChange={onEndpointChange}
-                        value={jsonData.endpoint || ''}
-                        placeholder="https://tls-cn-beijing.volces.com"
-                        width={65}
-                    />
-                </InlineField>
-            }
-            {
-                !jsonData.accountMode && <InlineField label="Region" labelWidth={16}>
-                    <Input
-                        onChange={onRegionChange}
-                        value={jsonData.region || ''}
-                        placeholder="cn-beijing"
-                        width={65}
-                    />
-                </InlineField>
-            }
-            {
-                !jsonData.accountMode && <InlineField label="Topic" labelWidth={16}>
+                !jsonData.accountMode && <InlineField label="Topic *" labelWidth={17}>
                     <Input
                         onChange={onTopicChange}
                         value={jsonData.topic || ''}
@@ -95,22 +108,6 @@ export function ConfigEditor(props: Props) {
                 </InlineField>
             }
 
-            <InlineField label="AccessKeyId" labelWidth={16}>
-                <Input
-                    onChange={onAccessKeyChange}
-                    value={jsonData.accessKeyId || ''}
-                    placeholder=""
-                    width={65}
-                />
-            </InlineField>
-            <InlineField label="AccessKeySecret" labelWidth={16}>
-                <Input
-                    onChange={onSecretChange}
-                    value={jsonData.accessKeySecret || ''}
-                    placeholder=""
-                    width={65}
-                />
-            </InlineField>
         </div>
     );
 }
