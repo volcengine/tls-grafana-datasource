@@ -74,6 +74,7 @@ export function ConfigEditor(props: Props) {
             </InlineField>
             <InlineField label="AccessKeySecret *" labelWidth={17}>
                 <Input
+                    type="password"
                     onChange={onSecretChange}
                     value={jsonData.accessKeySecret || ''}
                     placeholder=""

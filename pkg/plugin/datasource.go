@@ -614,6 +614,12 @@ func parseNumberFloat(value interface{}) (float64, error) {
 
 func buildFrameWhenLogsEmpty(resp *sdk.SearchLogsResponse, xcol string) *data.Frame {
 	frame := data.NewFrame("response")
+	xcols := strings.Split(xcol, ",")
+	var x string
+	if len(xcols) > 0 {
+		x = xcols[0]
+	}
+
 	if resp.Analysis {
 		indexMap := make(map[string]interface{})
 		for key, val := range resp.AnalysisResult.Type {
@@ -635,7 +641,7 @@ func buildFrameWhenLogsEmpty(resp *sdk.SearchLogsResponse, xcol string) *data.Fr
 				continue
 			}
 
-			if xcol != "" && xcol == schema {
+			if x != "" && x == schema {
 				v = []time.Time{}
 			}
 
