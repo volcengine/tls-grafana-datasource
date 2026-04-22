@@ -1,0 +1,95 @@
+name: 内部仓库同步开源仓库
+trigger:
+  push:
+    branches: [master, main]
+jobs:
+  sync:
+    image: hub.byted.org/codebase/ci_debian_bullseye
+    runs-on:
+      cluster: 
+    steps:
+       
+      - id: update
+        commands:
+          - apt-get update -y
+          - apt-get install -y git curl jq python3 python3-pip rsync openssl
+          - pip3 install PyJWT cryptography requests
+          - echo ${{ GH_PRIVATE_KEY }} | base64 -d > /tmp/private-key.pem
+          - chmod 600 /tmp/private-key.pem
+
+     
+      - id: get-app-token
+        commands:
+          - |
+
+            # 获取当前时间
+            NOW=$(date +%s)
+            EXP=$(($NOW + 600))
+
+            b64url() {
+              base64 -w 0 | tr '+/' '-_' | tr -d '='
+            }
+
+            # 生成 JWT HEADER
+            HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | b64url)
+
+            # 生成 JWT PAYLOAD
+            PAYLOAD=$(echo -n '{"iat":'$NOW',"exp":'$EXP',"iss":"'${{ APP_ID }}'"}' | b64url)
+
+            # 签名 → 生成 JWT
+            SIGNATURE=$(echo -n "$HEADER.$PAYLOAD" \
+              | openssl dgst -sha256 -binary -sign /tmp/private-key.pem \
+              | b64url)
+            JWT="$HEADER.$PAYLOAD.$SIGNATURE"
+            echo "JWT: $JWT"
+
+             # 调用 API，保存完整响应
+            API_RESPONSE=$(curl -s -X POST \
+              -H "Authorization: Bearer $JWT" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/app/installations/${{ GH_INSTALLATION_ID }}/access_tokens)
+            echo "JWT: $JWT"
+
+            # 打印看看返回了什么（关键！）
+            echo "API 原始返回：$API_RESPONSE"
+
+            # 正确提取 token
+            TOKEN=$(echo "$API_RESPONSE" | jq -r '.token')
+
+            echo "提取到的 TOKEN：$TOKEN"
+
+            # 判断是否为空
+            if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+              echo "❌ TOKEN 为空，退出"
+              exit 1
+            fi
+
+            echo "✅ TOKEN 获取成功：$TOKEN"
+
+            # ==========================================
+            # 克隆外部仓库 → 直接用 App Token 认证
+            # 根据实际开源仓库配置替换github.com/nmy22/testpush
+            # ==========================================
+
+            git clone https://x-access-token:$TOKEN@github.com/nmy22/testpush /tmp/external-repo
+            cd /tmp/external-repo
+            git config user.name "Org Sync Bot" #根据业务场景填写，不影响
+            git config user.email "bot@your-company.com" #根据业务场景填写，不影响
+
+            # ==========================================
+            # 同步全部代码
+            # ==========================================
+
+            rsync -av --delete --exclude=.git /home/code/* /tmp/external-repo/
+            ls /tmp/external-repo/
+
+            # ==========================================
+            # 推送 → 仍然用 App Token
+            # commit 信息根据每次更新内容修改
+            # ==========================================
+
+            cd /tmp/external-repo
+            git checkout main          
+            git add -A
+            git diff --staged --quiet || git commit -m "Sync from internal repo"
+            git push origin HEAD       
