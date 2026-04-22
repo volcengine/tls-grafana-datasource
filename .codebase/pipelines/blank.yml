@@ -71,10 +71,10 @@ jobs:
             # 根据实际开源仓库配置替换github.com/nmy22/testpush
             # ==========================================
 
-            git clone https://x-access-token:$TOKEN@github.com/nmy22/testpush /tmp/external-repo
+            git clone https://x-access-token:$TOKEN@github.com/volcengine/tls-grafana-datasource /tmp/external-repo
             cd /tmp/external-repo
-            git config user.name "Org Sync Bot" #根据业务场景填写，不影响
-            git config user.email "bot@your-company.com" #根据业务场景填写，不影响
+            git config user.name "TLS Org Sync Bot" #根据业务场景填写，不影响
+            git config user.email "tls-bot@your-company.com" #根据业务场景填写，不影响
 
             # ==========================================
             # 同步全部代码
