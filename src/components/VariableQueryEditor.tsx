@@ -38,7 +38,7 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
 
     const {tls_query, region} = query;
     const [value, setValue] = React.useState<any>();
-    const [regionOption, setRegion] = React.useState<string>("cn-guilin-boe");
+    const [regionOption, setRegion] = React.useState<string>("cn-beijing");
     const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
     const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
 
@@ -73,7 +73,7 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
                                     // @ts-ignore
                                     setValue({label: "", value: ""});
                                 }
-                                setRegion(v.value || "cn-guilin-boe")
+                                setRegion(v.value || "cn-beijing")
                             }
                             }
                         />

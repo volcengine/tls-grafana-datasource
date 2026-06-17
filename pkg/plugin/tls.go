@@ -58,7 +58,7 @@ func LoadSettings(ctx *backend.PluginContext) (*LogSource, error) {
 
 func (ls *LogSource) GetRegion() string {
 	if len(ls.Region) == 0 {
-		return "cn-guilin-boe"
+		return "cn-beijing"
 	}
 	return ls.Region
 }

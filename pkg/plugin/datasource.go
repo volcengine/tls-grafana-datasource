@@ -795,13 +795,13 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *stri
 
 		// check health
 		if regionStr == nil && region == "" {
-			region = "cn-guilin-boe"
+			region = "cn-beijing"
 			endpoint = GetEndpointByRegion(region)
 		}
 	}
 
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
-	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
+	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId)
 	ua := "TLSGrafanaPluginVersion/"
 	if ctx.PluginVersion != "" {
 		ua += ctx.PluginVersion

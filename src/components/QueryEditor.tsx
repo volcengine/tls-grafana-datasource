@@ -385,7 +385,7 @@ const buildStoredRegionTopics = (data: any, query: TlsQuery): RegionTopic[] => {
                 : query.topic_label
                     ? [query.topic_label]
                     : [];
-    const region = data?.region || query.region || "cn-guilin-boe";
+    const region = data?.region || query.region || "cn-beijing";
 
     return ids.map((id: string, index: number) => ({
         region,
@@ -413,7 +413,7 @@ const buildRegionValues = (data: any, query: TlsQuery): Array<SelectableValue<st
                 ? Array.from(new Set(data.region_topics.map((item: RegionTopic) => item.region)))
                 : Array.isArray(query.region_topics) && query.region_topics.length > 0
                     ? Array.from(new Set(query.region_topics.map((item) => item.region)))
-                    : [data?.region || query.region || "cn-guilin-boe"];
+                    : [data?.region || query.region || "cn-beijing"];
     return regions.map((region: string) => ({value: region, label: region}));
 };
 
