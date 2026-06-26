@@ -1,13 +1,23 @@
 import {DataSourceJsonData} from '@grafana/data';
 import {DataQuery} from '@grafana/schema';
 
+export interface RegionTopic {
+    region: string;
+    topic_id: string;
+    topic_label?: string;
+}
+
 export interface TlsQuery extends DataQuery {
     ycol?: string;
     xcol?: string;
     tls_query?: string;
     region?: string;
+    regions?: string[];
     topic_id?: string;
+    topic_ids?: string[];
     topic_label?: string;
+    topic_labels?: string[];
+    region_topics?: RegionTopic[];
     grafana_version?: string;
 }
 
@@ -38,6 +48,10 @@ export interface TlsSecureJsonData {
 export interface VariableQuery {
     tls_query: string;
     region?: string;
+    regions?: string[];
     topic_id?: string;
+    topic_ids?: string[];
     topic_label?: string;
+    topic_labels?: string[];
+    region_topics?: RegionTopic[];
 }

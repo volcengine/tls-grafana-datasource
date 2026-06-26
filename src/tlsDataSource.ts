@@ -22,6 +22,7 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
 
     query(options: DataQueryRequest<TlsQuery>) {
         options.targets.forEach((q: TlsQuery) => {
+            validateRegionTopicSelection(q, this.data_option);
             q.tls_query = replaceQueryParameters(q, options);
             q.grafana_version = version
         });
@@ -30,7 +31,14 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
 
     async metricFindQuery(query: VariableQuery, options?: any) {
         const Region = query?.region ? getTemplateSrv().replace(query.region) : '';
+        const Regions = query?.regions?.length ? query.regions.map((region) => getTemplateSrv().replace(region)) : [];
         const TopicID = query?.topic_id ? getTemplateSrv().replace(query.topic_id) : '';
+        const TopicIDs = query?.topic_ids?.length ? query.topic_ids.map((topic) => getTemplateSrv().replace(topic)) : [];
+        const RegionTopics = query?.region_topics?.length ? query.region_topics.map((regionTopic) => ({
+            region: getTemplateSrv().replace(regionTopic.region),
+            topic_id: getTemplateSrv().replace(regionTopic.topic_id),
+            topic_label: regionTopic.topic_label,
+        })) : [];
         const Query = replaceQueryParameters(query.tls_query, options)
         if (!options.range) {
             return [];
@@ -45,7 +53,10 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
                         datasource: {type: this.type, uid: this.uid},
                         datasourceId: this.id,
                         region: Region,
+                        regions: Regions,
                         topic_id: TopicID,
+                        topic_ids: TopicIDs,
+                        region_topics: RegionTopics,
                         tls_query: Query,
                     },
                 ],
@@ -62,6 +73,25 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
                 .then(mapToTextValue);
         }
         return [];
+    }
+}
+
+function validateRegionTopicSelection(query: TlsQuery, dsOptions?: TlsDataSourceOptions) {
+    if (!dsOptions?.accountMode) {
+        return;
+    }
+    const regions = Array.from(new Set((query?.regions || []).map((region) => region?.trim()).filter(Boolean)));
+    if (regions.length <= 1) {
+        return;
+    }
+    const regionSet = new Set(
+        (query?.region_topics || [])
+            .map((item) => item?.region?.trim())
+            .filter(Boolean)
+    );
+    const missingRegions = regions.filter((region) => !regionSet.has(region));
+    if (missingRegions.length > 0) {
+        throw new Error(`Please select at least one topic for each selected region: ${missingRegions.join(',')}`);
     }
 }
 

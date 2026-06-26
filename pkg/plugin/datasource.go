@@ -4,17 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"github.com/grafana/grafana-plugin-sdk-go/data"
-	sdk "github.com/volcengine/volc-sdk-golang/service/tls"
+	"io"
+	"net/http"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
+	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
+	"github.com/grafana/grafana-plugin-sdk-go/data"
+	sdk "github.com/volcengine/volc-sdk-golang/service/tls"
 )
 
 // Make sure Datasource implements required interfaces. This is important to do
@@ -172,7 +175,7 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 		}
 		return
 	}
-	config, cli, err := LoadCli(ctx, &queryInfo.Region, &queryInfo.GrafanaVersion)
+	config, err := LoadSettings(ctx)
 	if err != nil {
 		log.DefaultLogger.Error("Unmarshal queryInfo", "refId", refId, "error", err)
 		response.Error = err
@@ -185,13 +188,30 @@ func (d *Datasource) QueryLogs(ch chan Result, query backend.DataQuery, ctx *bac
 	//1.检索日志
 	from := query.TimeRange.From.UnixMilli()
 	to := query.TimeRange.To.UnixMilli()
-	topicId := config.Topic
-	if config.AccountMode && len(queryInfo.TopicId) > 0 {
-		topicId = queryInfo.TopicId
+	if err = validateRegionTopicSelection(config, queryInfo); err != nil {
+		log.DefaultLogger.Error("Validate region topic selection", "refId", refId, "regions", queryInfo.Regions, "region_topics", queryInfo.RegionTopics, "error", err)
+		response.Error = err
+		ch <- Result{
+			refId:        refId,
+			dataResponse: response,
+		}
+		return
 	}
-	resp, err := SearchLogs(cli, topicId, queryInfo.Query, from, to, 1000)
+	targets := resolveSearchTargets(config, queryInfo)
+	requestRegion := resolveRequestRegion(config, queryInfo, targets)
+	_, cli, err := LoadCli(ctx, &requestRegion, &queryInfo.GrafanaVersion)
 	if err != nil {
-		log.DefaultLogger.Error("SearchLogs", "query : ", queryInfo.Query, "error ", err)
+		log.DefaultLogger.Error("LoadCli", "refId", refId, "region", requestRegion, "error", err)
+		response.Error = err
+		ch <- Result{
+			refId:        refId,
+			dataResponse: response,
+		}
+		return
+	}
+	resp, err := SearchLogsByRegionTopics(cli, targets, queryInfo.Query, from, to, 1000)
+	if err != nil {
+		log.DefaultLogger.Error("SearchLogs", "query", queryInfo.Query, "targets", formatRegionTopics(targets), "error", err)
 		response.Error = err
 		ch <- Result{
 			refId:        refId,
@@ -520,15 +540,232 @@ func (d *Datasource) BuildTable(logs []map[string]interface{}, xcol string, ycol
 }
 
 func SearchLogs(cli sdk.Client, topic, query string, start, end int64, limit int) (*sdk.SearchLogsResponse, error) {
-	resp, err := cli.SearchLogsV2(&sdk.SearchLogsRequest{
+	req := &sdk.SearchLogsRequest{
 		TopicID:   topic,
 		Query:     query,
 		StartTime: start,
 		EndTime:   end,
 		Limit:     limit,
-	})
-	log.DefaultLogger.Info("Search sdk resp ", "resp", resp, "err", err)
+	}
+	resp, err := cli.SearchLogsV2(req)
 	return resp, err
+}
+
+func SearchLogsByRegionTopics(cli sdk.Client, targets []RegionTopic, query string, start, end int64, limit int) (*sdk.SearchLogsResponse, error) {
+	return searchLogsByRegionTopicsWithClient(cli, targets, query, start, end, limit)
+}
+
+func validateRegionTopicSelection(config *LogSource, queryInfo *QueryInfo) error {
+	if config == nil || queryInfo == nil || !config.AccountMode {
+		return nil
+	}
+	regions := normalizeRegions(queryInfo.Regions)
+	if len(regions) <= 1 {
+		return nil
+	}
+	regionTopics := normalizeRegionTopics(queryInfo.RegionTopics)
+	selected := make(map[string]bool, len(regionTopics))
+	for _, item := range regionTopics {
+		selected[item.Region] = true
+	}
+	missing := make([]string, 0)
+	for _, region := range regions {
+		if !selected[region] {
+			missing = append(missing, region)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return errors.New("please select at least one topic for each selected region: " + strings.Join(missing, ","))
+}
+
+func resolveSearchTargets(config *LogSource, queryInfo *QueryInfo) []RegionTopic {
+	if !config.AccountMode {
+		return normalizeRegionTopics([]RegionTopic{{Region: config.GetRegion(), TopicId: config.Topic}})
+	}
+	if len(queryInfo.RegionTopics) > 0 {
+		return normalizeRegionTopics(queryInfo.RegionTopics)
+	}
+
+	region := strings.TrimSpace(queryInfo.Region)
+	if region == "" {
+		region = config.GetRegion()
+	}
+	targets := make([]RegionTopic, 0)
+	for _, topic := range resolveTopicIds(config, queryInfo) {
+		targets = append(targets, RegionTopic{Region: region, TopicId: topic})
+	}
+	return normalizeRegionTopics(targets)
+}
+
+func resolveTopicIds(config *LogSource, queryInfo *QueryInfo) []string {
+	if !config.AccountMode {
+		return normalizeTopicIds([]string{config.Topic})
+	}
+	topics := normalizeTopicIds(queryInfo.TopicIds)
+	if len(topics) > 0 {
+		return topics
+	}
+	return normalizeTopicIds([]string{queryInfo.TopicId})
+}
+
+func normalizeTopicIds(topics []string) []string {
+	normalized := make([]string, 0, len(topics))
+	seen := make(map[string]bool, len(topics))
+	for _, topic := range topics {
+		for _, part := range strings.Split(topic, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" || seen[part] {
+				continue
+			}
+			normalized = append(normalized, part)
+			seen[part] = true
+		}
+	}
+	return normalized
+}
+
+func normalizeRegions(regions []string) []string {
+	normalized := make([]string, 0, len(regions))
+	seen := make(map[string]bool, len(regions))
+	for _, region := range regions {
+		region = strings.TrimSpace(region)
+		if region == "" || seen[region] {
+			continue
+		}
+		normalized = append(normalized, region)
+		seen[region] = true
+	}
+	return normalized
+}
+
+func normalizeRegionTopics(targets []RegionTopic) []RegionTopic {
+	normalized := make([]RegionTopic, 0, len(targets))
+	seen := make(map[string]bool, len(targets))
+	for _, target := range targets {
+		region := strings.TrimSpace(target.Region)
+		for _, topic := range normalizeTopicIds([]string{target.TopicId}) {
+			if region == "" || topic == "" {
+				continue
+			}
+			key := region + "\x1f" + topic
+			if seen[key] {
+				continue
+			}
+			normalized = append(normalized, RegionTopic{
+				Region:     region,
+				TopicId:    topic,
+				TopicLabel: target.TopicLabel,
+			})
+			seen[key] = true
+		}
+	}
+	return normalized
+}
+
+func formatRegionTopics(targets []RegionTopic) string {
+	formatted := make([]string, 0, len(targets))
+	for _, target := range targets {
+		formatted = append(formatted, target.Region+"/"+target.TopicId)
+	}
+	return strings.Join(formatted, ",")
+}
+
+type searchRegionTopic struct {
+	Region string `json:"Region"`
+	Topic  string `json:"Topic"`
+}
+
+type multiRegionSearchRequest struct {
+	TopicID      string              `json:"TopicId"`
+	StartTime    int64               `json:"StartTime"`
+	EndTime      int64               `json:"EndTime"`
+	Query        string              `json:"Query"`
+	MustComplete bool                `json:"MustComplete"`
+	Limit        int                 `json:"Limit,omitempty"`
+	RegionTopics []searchRegionTopic `json:"RegionTopics"`
+}
+
+func searchLogsByRegionTopicsWithClient(cli sdk.Client, targets []RegionTopic, query string, start, end int64, limit int) (*sdk.SearchLogsResponse, error) {
+	targets = normalizeRegionTopics(targets)
+	if len(targets) == 0 {
+		return nil, errors.New("empty region topic targets")
+	}
+	if len(targets) == 1 {
+		return SearchLogs(cli, targets[0].TopicId, query, start, end, limit)
+	}
+
+	lsClient, ok := cli.(*sdk.LsClient)
+	if !ok {
+		return nil, errors.New("tls client does not support raw request")
+	}
+	reqBody := multiRegionSearchRequest{
+		TopicID:      targets[0].TopicId,
+		StartTime:    start,
+		EndTime:      end,
+		Query:        query,
+		MustComplete: false,
+		Limit:        limit,
+		RegionTopics: make([]searchRegionTopic, 0, len(targets)),
+	}
+	for _, target := range targets {
+		reqBody.RegionTopics = append(reqBody.RegionTopics, searchRegionTopic{
+			Region: target.Region,
+			Topic:  target.TopicId,
+		})
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+	headers := map[string]string{
+		"Content-Type":             "application/json",
+		sdk.HeaderAPIVersion:       sdk.APIVersion3,
+		"X-Tls-IsMultiTopicSearch": "true",
+	}
+
+	rawResponse, err := lsClient.Request(http.MethodPost, "/SearchLogs", nil, headers, body)
+	if err != nil {
+		log.DefaultLogger.Error("Search multi region topic raw resp", "headers", headers, "req", string(body), "err", err)
+		return nil, err
+	}
+	defer rawResponse.Body.Close()
+	respBody, err := io.ReadAll(rawResponse.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &sdk.SearchLogsResponse{}
+	response.FillRequestId(rawResponse)
+	if err = unmarshalSearchLogsResponse(respBody, response); err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func unmarshalSearchLogsResponse(respBody []byte, response *sdk.SearchLogsResponse) error {
+	decoder := json.NewDecoder(strings.NewReader(string(respBody)))
+	decoder.UseNumber()
+	return decoder.Decode(response)
+}
+
+func resolveRequestRegion(config *LogSource, queryInfo *QueryInfo, targets []RegionTopic) string {
+	if region := strings.TrimSpace(queryInfo.Region); region != "" {
+		return region
+	}
+	if region := resolveRequestRegionFromTargets(targets); region != "" {
+		return region
+	}
+	return config.GetRegion()
+}
+
+func resolveRequestRegionFromTargets(targets []RegionTopic) string {
+	if len(targets) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(targets[0].Region)
 }
 
 func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
@@ -564,7 +801,7 @@ func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *stri
 	}
 
 	cli := sdk.NewClient(endpoint, config.AccessKeyId, config.AccessKeySecret, "", region)
-	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId, "sk", config.AccessKeySecret)
+	log.DefaultLogger.Info("tls sdk init ", "endpoint", endpoint, "region", region, "ak", config.AccessKeyId)
 	ua := "TLSGrafanaPluginVersion/"
 	if ctx.PluginVersion != "" {
 		ua += ctx.PluginVersion

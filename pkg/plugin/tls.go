@@ -3,6 +3,7 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
@@ -22,12 +23,21 @@ type Result struct {
 }
 
 type QueryInfo struct {
-	Query          string `json:"tls_query"`
-	Xcol           string `json:"xcol"`
-	Ycol           string `json:"ycol"`
-	Region         string `json:"region"`
-	TopicId        string `json:"topic_id"`
-	GrafanaVersion string `json:"grafana_version"`
+	Query          string        `json:"tls_query"`
+	Xcol           string        `json:"xcol"`
+	Ycol           string        `json:"ycol"`
+	Region         string        `json:"region"`
+	Regions        []string      `json:"regions"`
+	TopicId        string        `json:"topic_id"`
+	TopicIds       []string      `json:"topic_ids"`
+	RegionTopics   []RegionTopic `json:"region_topics"`
+	GrafanaVersion string        `json:"grafana_version"`
+}
+
+type RegionTopic struct {
+	Region     string `json:"region"`
+	TopicId    string `json:"topic_id"`
+	TopicLabel string `json:"topic_label"`
 }
 
 func LoadSettings(ctx *backend.PluginContext) (*LogSource, error) {
