@@ -117,3 +117,7 @@ ycol: time,PV,UV
 query: * | select (__time__ - (__time__ % 60000)) as time,count(1) as PV, count(distinct account_id) as UV group by time
 ```
 ![表格](./src/img/table.png)
+
+## Security and privacy
+This project takes security seriously.
+For vulnerability reporting and supported versions, see [SECURITY.md](SECURITY.md)
