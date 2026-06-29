@@ -4,10 +4,7 @@ import {TlsDataSource} from '../tlsDataSource';
 import {AsyncSelect, InlineField, InlineFormLabel, Input, Select} from "@grafana/ui";
 import {RegionOptions} from "./const";
 import {SelectableValue} from "@grafana/data";
-import {getBackendSrv} from "@grafana/runtime";
-import {getHostByRegion, uuidRegex} from "./QueryEditor";
-// @ts-ignore
-import {TLSService} from "../tls";
+import {uuidRegex} from "./QueryEditor";
 
 
 interface VariableQueryProps {
@@ -97,15 +94,9 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
                                         key_name = filterStr;
                                     }
                                 }
-                                let tlsConfig = {
-                                    accessKey: dsConf?.accessKeyId,
-                                    secret: dsConf?.accessKeySecret,
-                                    url: getHostByRegion(region, dsConf?.region, dsConf?.endpoint),
-                                    region: region,
-                                }
-                                const tlsService = new TLSService(tlsConfig, getBackendSrv());
-                                const options = await tlsService.listTopics(key_id, key_name).then((result: any) =>
-                                    result.data.Topics.map((item: { TopicId: any; TopicName: any; }) => (
+                                const selectedRegion = query.region && query.region.length > 0 ? query.region : regionOption;
+                                const options = await datasource.listTopics(selectedRegion, key_id, key_name).then((result: any) =>
+                                    result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
                                         {
                                             value: item.TopicId,
                                             label: `${item.TopicName} (${item.TopicId})`,

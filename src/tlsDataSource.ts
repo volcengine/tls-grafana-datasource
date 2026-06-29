@@ -4,8 +4,6 @@ import {DataSourceWithBackend, getBackendSrv, getTemplateSrv} from '@grafana/run
 import {DEFAULT_QUERY, TlsDataSourceOptions, TlsQuery, VariableQuery} from './types';
 import {version} from "./components/const";
 
-// @ts-ignore
-import {TLSService} from "../tls"
 import _ from "lodash";
 
 export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSourceOptions> {
@@ -18,6 +16,17 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
 
     getDefaultQuery(_: CoreApp): Partial<TlsQuery> {
         return DEFAULT_QUERY;
+    }
+
+    listTopics(region: string, topicID?: string, topicName?: string) {
+        const params: Record<string, string> = {region};
+        if (topicID) {
+            params.topic_id = topicID;
+        }
+        if (topicName) {
+            params.topic_name = topicName;
+        }
+        return this.getResource('topics', params);
     }
 
     query(options: DataQueryRequest<TlsQuery>) {
