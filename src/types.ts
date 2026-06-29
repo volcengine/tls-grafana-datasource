@@ -33,6 +33,7 @@ export interface TlsDataSourceOptions extends DataSourceJsonData {
     region?: string;
     topic?: string;
     accessKeyId?: string;
+    /** Legacy field kept for migration from old configs. New configs use secureJsonData.accessKeySecret. */
     accessKeySecret?: string;
     accountMode?: boolean;
 }

@@ -1,13 +1,4 @@
 ## 火山引擎日志服务数据源
-## 开发
-1. 下载代码后在根目录执行
-```
-yarn install
-```
-2. 编译
-```
-npm run build --force
-```
 ## 安装
 
 依赖 Grafana >= [9.x版本](https://codeload.github.com/volcengine/tls-grafana-datasource/zip/refs/heads/main) </br> 

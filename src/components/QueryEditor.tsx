@@ -4,9 +4,6 @@ import {QueryEditorProps, SelectableValue} from '@grafana/data';
 import {TlsDataSource} from '../tlsDataSource';
 import {RegionTopic, TlsDataSourceOptions, TlsQuery} from '../types';
 import {RegionOptions, version, xColInfoSeries, xSelectOptions, yColInfoSeries} from "./const";
-import {getBackendSrv} from "@grafana/runtime";
-// @ts-ignore
-import {TLSService} from "../tls"
 
 type Props = QueryEditorProps<TlsDataSource, TlsQuery, TlsDataSourceOptions>;
 export const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -157,15 +154,8 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                 }
                                 const selectedRegions = getSelectedRegions(regionOptions);
                                 const options = (await Promise.all(selectedRegions.map(async (region) => {
-                                    let tlsConfig = {
-                                        accessKey: dsConf?.accessKeyId,
-                                        secret: dsConf?.accessKeySecret,
-                                        url: getHostByRegion(region, dsConf?.region, dsConf?.endpoint),
-                                        region,
-                                    }
-                                    const tlsService = new TLSService(tlsConfig, getBackendSrv());
-                                    return tlsService.listTopics(key_id, key_name).then((result: any) =>
-                                        result.data.Topics.map((item: { TopicId: any; TopicName: any; }) => (
+                                    return conf.datasource.listTopics(region, key_id, key_name).then((result: any) =>
+                                        result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
                                             {
                                                 value: makeRegionTopicKey(region, item.TopicId),
                                                 label: `${region} / ${item.TopicName} (${item.TopicId})`,

@@ -9,11 +9,14 @@ import (
 )
 
 type LogSource struct {
-	Endpoint        string
-	Topic           string
-	Region          string
-	AccessKeyId     string
-	AccountMode     bool
+	Endpoint    string
+	Topic       string
+	Region      string
+	AccessKeyId string
+	AccountMode bool
+	// AccessKeySecret is kept in jsonData only for compatibility with old datasource configs.
+	// New configs store it in secureJsonData and LoadSettings overwrites this field with
+	// DecryptedSecureJSONData["accessKeySecret"].
 	AccessKeySecret string
 }
 
@@ -49,10 +52,9 @@ func LoadSettings(ctx *backend.PluginContext) (*LogSource, error) {
 		return nil, fmt.Errorf("error unmarshal settings: %s", err.Error())
 	}
 	if val, ok := settings.DecryptedSecureJSONData["accessKeySecret"]; ok {
-		log.DefaultLogger.Info("load config adapt low version", "secret_sk", val)
 		model.AccessKeySecret = val
 	}
-	log.DefaultLogger.Info("load config settings account mode ", "settings", settings, "model", model)
+	log.DefaultLogger.Info("load config settings", "accountMode", model.AccountMode, "region", model.Region, "endpoint", model.Endpoint, "accessKeyId", model.AccessKeyId)
 	return model, nil
 }
 

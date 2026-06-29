@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 var (
 	_ backend.QueryDataHandler      = (*Datasource)(nil)
 	_ backend.CheckHealthHandler    = (*Datasource)(nil)
+	_ backend.CallResourceHandler   = (*Datasource)(nil)
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
@@ -47,6 +49,18 @@ type Datasource struct{}
 // be disposed and a new one will be created using NewSampleDatasource factory function.
 func (d *Datasource) Dispose() {
 	// Clean up datasource instance resources.
+}
+
+func (d *Datasource) CallResource(_ context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	switch strings.Trim(req.Path, "/") {
+	case "topics":
+		return d.listTopicsResource(req, sender)
+	default:
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusNotFound,
+			Body:   []byte("resource not found"),
+		})
+	}
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -771,6 +785,80 @@ func resolveRequestRegionFromTargets(targets []RegionTopic) string {
 func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 	resp, err := cli.DescribeProjects(&sdk.DescribeProjectsRequest{})
 	log.DefaultLogger.Info("list sdk resp ", "resp", resp, "err", err)
+	return resp, err
+}
+
+type listTopicsResourceRequest struct {
+	Region    string
+	TopicID   string
+	TopicName string
+}
+
+func (d *Datasource) listTopicsResource(req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	params, err := parseListTopicsResourceRequest(req.URL)
+	if err != nil {
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusBadRequest,
+			Body:   []byte(err.Error()),
+		})
+	}
+	config, cli, err := LoadCli(&req.PluginContext, &params.Region, nil)
+	if err != nil {
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusInternalServerError,
+			Body:   []byte(err.Error()),
+		})
+	}
+	if strings.TrimSpace(config.AccessKeySecret) == "" {
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusBadRequest,
+			Body:   []byte("accessKeySecret is not configured"),
+		})
+	}
+	resp, err := ListTopics(cli, params.TopicID, params.TopicName)
+	if err != nil {
+		log.DefaultLogger.Error("ListTopics resource error", "region", params.Region, "topic_id", params.TopicID, "topic_name", params.TopicName, "error", err)
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusInternalServerError,
+			Body:   []byte(err.Error()),
+		})
+	}
+	body, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return sender.Send(&backend.CallResourceResponse{
+		Status:  http.StatusOK,
+		Headers: map[string][]string{"content-type": {"application/json"}},
+		Body:    body,
+	})
+}
+
+func parseListTopicsResourceRequest(rawURL string) (listTopicsResourceRequest, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return listTopicsResourceRequest{}, err
+	}
+	query := parsed.Query()
+	req := listTopicsResourceRequest{
+		Region:    strings.TrimSpace(query.Get("region")),
+		TopicID:   strings.TrimSpace(query.Get("topic_id")),
+		TopicName: strings.TrimSpace(query.Get("topic_name")),
+	}
+	if req.Region == "" {
+		return req, errors.New("region is required")
+	}
+	return req, nil
+}
+
+func ListTopics(cli sdk.Client, topicID, topicName string) (*sdk.DescribeTopicsResponse, error) {
+	resp, err := cli.DescribeTopics(&sdk.DescribeTopicsRequest{
+		PageSize:   100,
+		PageNumber: 1,
+		TopicID:    topicID,
+		TopicName:  topicName,
+	})
+	//log.DefaultLogger.Info("list topics sdk resp", "topic_id", topicID, "topic_name", topicName, "resp", resp, "err", err)
 	return resp, err
 }
 
