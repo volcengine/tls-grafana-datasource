@@ -1,0 +1,31 @@
+dist/module.js.LICENSE.txt
+  s_b89e44aaac97c7::t_2b86b31c5c6ada 1-16
+src/plugin.json
+  s_b89e44aaac97c7::t_91bfca6a3fdda1 29-30
+src/tls.d.ts
+  s_b89e44aaac97c7::t_f80a5bcb518087 1-6
+src/tls.js
+  s_b89e44aaac97c7::t_93485e1866f1e5 37-50,53-60,62-69,75,107-109,127,133-134,137-143
+src/tlsDataSource.ts
+  s_b89e44aaac97c7::t_4d165031bad085 1-9,13,16,18,20,25,33-35,47,49-53,55-59,77-98,102-239,277-294,362-475
+src/types.ts
+  s_b89e44aaac97c7::t_4c56d48bae7efe 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "8d673245daf2f434c7b88eb5d11d4fdd70170e1e",
+  "prompts": {},
+  "sessions": {
+    "s_b89e44aaac97c7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f361e-e0e2-7332-840d-3ecc0d7dc68d",
+        "model": "unknown"
+      },
+      "human_author": "leiyuanjie <leiyuanjie@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
