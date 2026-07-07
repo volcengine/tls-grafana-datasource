@@ -2,7 +2,7 @@ import {CoreApp, DataQueryRequest, DataSourceInstanceSettings} from '@grafana/da
 import {DataSourceWithBackend, getBackendSrv, getTemplateSrv} from '@grafana/runtime';
 
 import {DEFAULT_QUERY, TlsDataSourceOptions, TlsQuery, VariableQuery} from './types';
-import {version} from "./components/const";
+import {RegionOptions, version} from "./components/const";
 
 import _ from "lodash";
 
@@ -18,7 +18,7 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         return DEFAULT_QUERY;
     }
 
-    listTopics(region: string, topicID?: string, topicName?: string) {
+    listTopics(region: string, topicID?: string, topicName?: string, projectName?: string) {
         const params: Record<string, string> = {region};
         if (topicID) {
             params.topic_id = topicID;
@@ -26,11 +26,15 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         if (topicName) {
             params.topic_name = topicName;
         }
+        if (projectName) {
+            params.project_name = projectName;
+        }
         return this.getResource('topics', params);
     }
 
     query(options: DataQueryRequest<TlsQuery>) {
         options.targets.forEach((q: TlsQuery) => {
+            applyVariableOverrides(q, options);
             validateRegionTopicSelection(q, this.data_option);
             q.tls_query = replaceQueryParameters(q, options);
             q.grafana_version = version
@@ -39,6 +43,20 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
     }
 
     async metricFindQuery(query: VariableQuery, options?: any) {
+        if (query?.query_type === 'region') {
+            return getRegionVariableValues(this.data_option);
+        }
+        if (query?.query_type === 'topics') {
+            const region = resolveFirstTemplateValue(query.region_variable || query.region, options) || this.data_option?.region || 'cn-beijing';
+            const topicName = resolveFirstTemplateValue(query.topic_name, options);
+            const projectName = resolveFirstTemplateValue(query.project_name, options);
+            return this.listTopics(region, undefined, topicName, projectName).then((result: any) =>
+                result.Topics.map((item: { TopicId: string; TopicName: string; ProjectId?: string; }) => ({
+                    text: `${item.TopicName} (${item.TopicId})`,
+                    value: item.TopicId,
+                }))
+            );
+        }
         const Region = query?.region ? getTemplateSrv().replace(query.region) : '';
         const Regions = query?.regions?.length ? query.regions.map((region) => getTemplateSrv().replace(region)) : [];
         const TopicID = query?.topic_id ? getTemplateSrv().replace(query.topic_id) : '';
@@ -83,6 +101,121 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         }
         return [];
     }
+}
+
+function getRegionVariableValues(dsOptions?: TlsDataSourceOptions) {
+    const regionOptions = [...RegionOptions];
+    const configuredRegion = dsOptions?.region?.trim();
+
+    if (configuredRegion && !regionOptions.some((item) => item.value === configuredRegion)) {
+        regionOptions.unshift({
+            label: configuredRegion,
+            value: configuredRegion,
+            description: 'Configured custom region',
+        });
+    }
+
+    return regionOptions.map((item) => ({
+        text: item.label,
+        value: item.value,
+    }));
+}
+
+function applyVariableOverrides(query: TlsQuery, options: DataQueryRequest<TlsQuery>) {
+    const regionVariable = query.region_variable || getVariableRef(query.region);
+    const topicVariable = query.topic_variable || getVariableRef(query.topic_id);
+    const variableRegions = resolveTemplateValues(regionVariable, options);
+    const variableTopics = resolveTemplateValues(topicVariable, options);
+
+    if (variableRegions.length > 0) {
+        query.region = variableRegions[0];
+        query.regions = variableRegions;
+    }
+
+    if (variableTopics.length > 0) {
+        const regionTopicsFromVariable = parseRegionTopicValues(variableTopics);
+        if (regionTopicsFromVariable.length > 0) {
+            query.region_topics = regionTopicsFromVariable;
+            query.region = regionTopicsFromVariable[0].region;
+            query.regions = Array.from(new Set(regionTopicsFromVariable.map((item) => item.region)));
+            query.topic_id = regionTopicsFromVariable[0].topic_id;
+            query.topic_ids = regionTopicsFromVariable.map((item) => item.topic_id);
+            query.topic_labels = regionTopicsFromVariable.map((item) => item.topic_label || item.topic_id);
+            return;
+        }
+
+        query.topic_id = variableTopics[0];
+        query.topic_ids = variableTopics;
+        query.topic_labels = variableTopics;
+
+        const effectiveRegions = variableRegions.length > 0
+            ? variableRegions
+            : (query.regions?.length ? query.regions : (query.region ? [query.region] : []));
+
+        if (effectiveRegions.length === 1) {
+            query.region_topics = variableTopics.map((topic) => ({
+                region: effectiveRegions[0],
+                topic_id: topic,
+                topic_label: topic,
+            }));
+        } else if (effectiveRegions.length === variableTopics.length) {
+            query.region_topics = variableTopics.map((topic, index) => ({
+                region: effectiveRegions[index],
+                topic_id: topic,
+                topic_label: topic,
+            }));
+        }
+    } else if (variableRegions.length === 1 && query.region_topics?.length) {
+        query.region_topics = query.region_topics.map((item) => ({
+            ...item,
+            region: variableRegions[0],
+        }));
+    }
+}
+
+function parseRegionTopicValues(values: string[]) {
+    return values
+        .map((value) => {
+            const parts = value.split(/[:|]/);
+            if (parts.length < 2) {
+                return undefined;
+            }
+            const region = parts[0].trim();
+            const topic = parts.slice(1).join(':').trim();
+            if (!region || !topic) {
+                return undefined;
+            }
+            return {
+                region,
+                topic_id: topic,
+                topic_label: topic,
+            };
+        })
+        .filter(Boolean) as Array<{ region: string; topic_id: string; topic_label: string }>;
+}
+
+function resolveFirstTemplateValue(value: string | undefined, options: any) {
+    return resolveTemplateValues(value, options)[0] || '';
+}
+
+function getVariableRef(value: string | undefined) {
+    const trimmed = value?.trim();
+    return trimmed?.startsWith('$') ? trimmed : '';
+}
+
+function resolveTemplateValues(value: string | undefined, options: any): string[] {
+    const raw = value?.trim();
+    if (!raw) {
+        return [];
+    }
+    const replaced = getTemplateSrv().replace(raw, options?.scopedVars, 'csv');
+    if (!replaced || (raw.startsWith('$') && replaced === raw)) {
+        return [];
+    }
+    return String(replaced)
+        .split(',')
+        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter((item) => item && item !== '$__all' && item !== 'All' && item !== '.*');
 }
 
 function validateRegionTopicSelection(query: TlsQuery, dsOptions?: TlsDataSourceOptions) {
