@@ -45,3 +45,26 @@ func TestMultiDimen(t *testing.T) {
 	d := ds.BuildTimeSeries(logs, "time", []string{"a", "b", "c"})
 	t.Log(d)
 }
+
+func TestParseListTopicsResourceRequest(t *testing.T) {
+	req, err := parseListTopicsResourceRequest("/topics?region=cn-beijing&project_name=proj-a&topic_name=topic-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Region != "cn-beijing" {
+		t.Fatalf("unexpected region: %s", req.Region)
+	}
+	if req.ProjectName != "proj-a" {
+		t.Fatalf("unexpected project name: %s", req.ProjectName)
+	}
+	if req.TopicName != "topic-a" {
+		t.Fatalf("unexpected topic name: %s", req.TopicName)
+	}
+}
+
+func TestParseListTopicsResourceRequestRequiresRegion(t *testing.T) {
+	_, err := parseListTopicsResourceRequest("/topics?project_name=proj-a")
+	if err == nil {
+		t.Fatal("expected region required error")
+	}
+}

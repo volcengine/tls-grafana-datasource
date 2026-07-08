@@ -789,9 +789,10 @@ func ListProjects(cli sdk.Client) (*sdk.DescribeProjectsResponse, error) {
 }
 
 type listTopicsResourceRequest struct {
-	Region    string
-	TopicID   string
-	TopicName string
+	Region      string
+	TopicID     string
+	TopicName   string
+	ProjectName string
 }
 
 func (d *Datasource) listTopicsResource(req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
@@ -815,9 +816,9 @@ func (d *Datasource) listTopicsResource(req *backend.CallResourceRequest, sender
 			Body:   []byte("accessKeySecret is not configured"),
 		})
 	}
-	resp, err := ListTopics(cli, params.TopicID, params.TopicName)
+	resp, err := ListTopics(cli, params.TopicID, params.TopicName, params.ProjectName)
 	if err != nil {
-		log.DefaultLogger.Error("ListTopics resource error", "region", params.Region, "topic_id", params.TopicID, "topic_name", params.TopicName, "error", err)
+		log.DefaultLogger.Error("ListTopics resource error", "region", params.Region, "project_name", params.ProjectName, "topic_id", params.TopicID, "topic_name", params.TopicName, "error", err)
 		return sender.Send(&backend.CallResourceResponse{
 			Status: http.StatusInternalServerError,
 			Body:   []byte(err.Error()),
@@ -841,9 +842,10 @@ func parseListTopicsResourceRequest(rawURL string) (listTopicsResourceRequest, e
 	}
 	query := parsed.Query()
 	req := listTopicsResourceRequest{
-		Region:    strings.TrimSpace(query.Get("region")),
-		TopicID:   strings.TrimSpace(query.Get("topic_id")),
-		TopicName: strings.TrimSpace(query.Get("topic_name")),
+		Region:      strings.TrimSpace(query.Get("region")),
+		TopicID:     strings.TrimSpace(query.Get("topic_id")),
+		TopicName:   strings.TrimSpace(query.Get("topic_name")),
+		ProjectName: strings.TrimSpace(query.Get("project_name")),
 	}
 	if req.Region == "" {
 		return req, errors.New("region is required")
@@ -851,12 +853,37 @@ func parseListTopicsResourceRequest(rawURL string) (listTopicsResourceRequest, e
 	return req, nil
 }
 
-func ListTopics(cli sdk.Client, topicID, topicName string) (*sdk.DescribeTopicsResponse, error) {
+func ListTopics(cli sdk.Client, topicID, topicName, projectName string) (*sdk.DescribeTopicsResponse, error) {
+	projectID := ""
+	if projectName != "" {
+		projectResp, err := cli.DescribeProjects(&sdk.DescribeProjectsRequest{
+			ProjectName: projectName,
+			PageSize:    100,
+			PageNumber:  1,
+			IsFullName:  true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, project := range projectResp.Projects {
+			if project.ProjectName == projectName {
+				projectID = project.ProjectID
+				break
+			}
+		}
+		if projectID == "" && len(projectResp.Projects) > 0 {
+			projectID = projectResp.Projects[0].ProjectID
+		}
+		if projectID == "" {
+			return nil, errors.New("project not found: " + projectName)
+		}
+	}
 	resp, err := cli.DescribeTopics(&sdk.DescribeTopicsRequest{
 		PageSize:   100,
 		PageNumber: 1,
 		TopicID:    topicID,
 		TopicName:  topicName,
+		ProjectID:  projectID,
 	})
 	//log.DefaultLogger.Info("list topics sdk resp", "topic_id", topicID, "topic_name", topicName, "resp", resp, "err", err)
 	return resp, err

@@ -1,6 +1,7 @@
 import React, {ChangeEvent, useRef} from 'react';
 import {AsyncSelect, Card, Icon, InlineField, InlineFormLabel, Input, Select, SeriesTable, Tooltip} from '@grafana/ui';
 import {QueryEditorProps, SelectableValue} from '@grafana/data';
+import {getTemplateSrv} from '@grafana/runtime';
 import {TlsDataSource} from '../tlsDataSource';
 import {RegionTopic, TlsDataSourceOptions, TlsQuery} from '../types';
 import {RegionOptions, version, xColInfoSeries, xSelectOptions, yColInfoSeries} from "./const";
@@ -73,11 +74,24 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     // const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
     const [initialSelection] = React.useState(loadSelection);
     const initialRegionTopics = buildStoredRegionTopics(initialSelection, query);
+    const initialTopicVariable = initialSelection?.topic_variable || query.topic_variable || getVariableRef(initialSelection?.topic_id || query.topic_id);
     const [selectedRegionTopics, setSelectedRegionTopics] = React.useState<RegionTopic[]>(initialRegionTopics);
-    const [value, setValue] = React.useState<any>(() => buildTopicSelectValues(initialRegionTopics));
+    const [value, setValue] = React.useState<any>(() => {
+        const topicValues = buildTopicSelectValues(initialRegionTopics);
+        return initialTopicVariable ? [...topicValues, buildVariableOption(initialTopicVariable)] : topicValues;
+    });
     const [regionOptions, setRegionOptions] = React.useState<any>(() => buildRegionValues(initialSelection, query));
     const topicSelectOptionsRef = useRef<Array<SelectableValue<string>>>([]);
     const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
+    const variableOptions = React.useMemo(() => getDashboardVariableOptions(), []);
+    const regionVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as region',
+    }));
+    const topicVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as topic',
+    }));
     // @ts-ignore
     return dsConf && dsConf.accountMode ? (
         <>
@@ -93,9 +107,10 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                     ? [
                                         // 只用 dsConf.region 创建一个选项
                                         { value: dsConf.region, label: dsConf.region },
-                                        ...customOptions
+                                        ...customOptions,
+                                        ...regionVariableOptions,
                                     ]
-                                    : [...RegionOptions, ...customOptions] // 保持原来的
+                                    : [...RegionOptions, ...customOptions, ...regionVariableOptions] // 保持原来的
                             }
                             value={regionOptions}
                             allowCustomValue
@@ -108,12 +123,14 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                             onChange={async (v) => {
                                 const selectedRegions = Array.isArray(v) ? v : (v ? [v] : []);
                                 const regions = selectedRegions.map((item) => item.value || "").filter(Boolean);
+                                const regionVariable = selectedRegions.find((item) => item.isVariable)?.value || "";
                                 const selectedRegionSet = new Set(regions);
                                 const regionTopics = selectedRegionTopics.filter((item) => selectedRegionSet.has(item.region));
                                 const nextQuery = {
                                     ...query,
                                     region: regions[0] || "",
                                     regions,
+                                    region_variable: regionVariable,
                                     topic_id: regionTopics[0]?.topic_id || "",
                                     topic_label: regionTopics[0]?.topic_label || "",
                                     topic_ids: regionTopics.map((item) => item.topic_id),
@@ -152,7 +169,7 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                         key_name = filterStr;
                                     }
                                 }
-                                const selectedRegions = getSelectedRegions(regionOptions);
+                                const selectedRegions = resolveSelectedRegionsForTopicLoad(regionOptions);
                                 const options = (await Promise.all(selectedRegions.map(async (region) => {
                                     return conf.datasource.listTopics(region, key_id, key_name).then((result: any) =>
                                         result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
@@ -165,8 +182,9 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                             })),
                                     );
                                 }))).flat();
-                                topicSelectOptionsRef.current = options;
-                                resolve(options)
+                                const topicOptions = [...options, ...topicVariableOptions];
+                                topicSelectOptionsRef.current = topicOptions;
+                                resolve(topicOptions)
                             });
                         }}
                     defaultOptions
@@ -174,23 +192,25 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                     value={value}
                     onChange={(e: any) => {
                         const selectedTopics = Array.isArray(e) ? e : (e ? [e] : []);
+                        const topicVariable = selectedTopics.find((item) => item.isVariable)?.value || "";
                         const regionTopics = buildRegionTopicsFromValues(selectedTopics);
                         const regions = getSelectedRegions(regionOptions);
                         const nextQuery = {
                             ...query,
                             region: regions[0] || "",
                             regions,
-                            topic_id: regionTopics[0]?.topic_id || "",
-                            topic_label: regionTopics[0]?.topic_label || "",
+                            topic_id: topicVariable || regionTopics[0]?.topic_id || "",
+                            topic_label: topicVariable || regionTopics[0]?.topic_label || "",
                             topic_ids: regionTopics.map((item) => item.topic_id),
                             topic_labels: regionTopics.map((item) => item.topic_label || item.topic_id),
+                            topic_variable: topicVariable,
                             region_topics: regionTopics,
                         };
                         setSelectedRegionTopics(regionTopics);
-                        setValue(buildTopicSelectValues(regionTopics));
+                        setValue([...buildTopicSelectValues(regionTopics), ...selectedTopics.filter((item) => item.isVariable)]);
                         onChange(nextQuery);
                         saveSelection(nextQuery);
-                        if (regionTopics.length > 0) {
+                        if (regionTopics.length > 0 || topicVariable) {
                             onRunQuery();
                         }
                     }
@@ -349,6 +369,9 @@ const onSelectChange = (realXCol: string) => {
 };
 
 const buildStoredRegionTopics = (data: any, query: TlsQuery): RegionTopic[] => {
+    if (data?.topic_variable || query.topic_variable || getVariableRef(data?.topic_id || query.topic_id)) {
+        return [];
+    }
     const regionTopics: RegionTopic[] = Array.isArray(data?.region_topics) && data.region_topics.length > 0
         ? data.region_topics
         : Array.isArray(query.region_topics) && query.region_topics.length > 0
@@ -395,6 +418,10 @@ const buildTopicSelectValues = (regionTopics: RegionTopic[]): Array<SelectableVa
 };
 
 const buildRegionValues = (data: any, query: TlsQuery): Array<SelectableValue<string>> => {
+    if (data?.region_variable || query.region_variable) {
+        const variable = data?.region_variable || query.region_variable;
+        return [buildVariableOption(variable)];
+    }
     const regions = Array.isArray(data?.regions) && data.regions.length > 0
         ? data.regions
         : Array.isArray(query.regions) && query.regions.length > 0
@@ -404,12 +431,51 @@ const buildRegionValues = (data: any, query: TlsQuery): Array<SelectableValue<st
                 : Array.isArray(query.region_topics) && query.region_topics.length > 0
                     ? Array.from(new Set(query.region_topics.map((item) => item.region)))
                     : [data?.region || query.region || "cn-beijing"];
-    return regions.map((region: string) => ({value: region, label: region}));
+    return regions.map((region: string) => region.startsWith('$') ? buildVariableOption(region) : ({value: region, label: region}));
 };
 
 const getSelectedRegions = (regions: any): string[] => {
     const selectedRegions = Array.isArray(regions) ? regions : (regions ? [regions] : []);
     return selectedRegions.map((item) => item.value || "").filter(Boolean);
+};
+
+const resolveSelectedRegionsForTopicLoad = (regions: any): string[] => {
+    return getSelectedRegions(regions).flatMap((region) => {
+        if (!region.startsWith('$')) {
+            return [region];
+        }
+        return resolveTemplateValues(region);
+    });
+};
+
+const getDashboardVariableOptions = (): Array<SelectableValue<string> & { isVariable: boolean }> => {
+    const variables = (getTemplateSrv() as any).getVariables?.() || [];
+    return variables
+        .map((variable: any) => variable?.name)
+        .filter(Boolean)
+        .map((name: string) => buildVariableOption(`$${name}`));
+};
+
+const buildVariableOption = (value: string): SelectableValue<string> & { isVariable: boolean } => ({
+    value,
+    label: value,
+    isVariable: true,
+});
+
+const resolveTemplateValues = (value: string): string[] => {
+    const replaced = getTemplateSrv().replace(value, undefined, 'csv');
+    if (!replaced || replaced === value) {
+        return [];
+    }
+    return String(replaced)
+        .split(',')
+        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter((item) => item && item !== '$__all' && item !== 'All' && item !== '.*');
+};
+
+const getVariableRef = (value: string | undefined): string => {
+    const trimmed = value?.trim();
+    return trimmed?.startsWith('$') ? trimmed : '';
 };
 
 const makeRegionTopicKey = (region: string, topicId: string) => `${region}:${topicId}`;

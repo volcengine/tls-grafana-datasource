@@ -62,5 +62,9 @@ export const RegionOptions = [
     {label: '乌兰察布', value: 'cn-wulanchabu', description: ''},
     {label: '雅加达', value: 'ap-southeast-3', description: ''},
     {label: '新加坡', value: 'ap-southeast-2', description: ''},
+    {label: '芜湖', value: 'cn-wuhu', description: ''},
+    {label: '北京-自动驾驶云', value: 'cn-beijing-selfdrive', description: ''},
+    {label: '北京-自动驾驶云', value: 'cn-beijing-autodriving', description: ''},
+    {label: '上海-自动驾驶云1', value: 'cn-shanghai-autodriving', description: ''},
 ]
 export const version = (window as any)?.grafanaBootData?.settings?.buildInfo?.version ?? '';
