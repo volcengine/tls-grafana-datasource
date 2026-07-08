@@ -36,11 +36,26 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
     };
 
     const {tls_query, region} = query;
-    const [value, setValue] = React.useState<any>();
+    const [value, setValue] = React.useState<any>(() => {
+        if (!query.topic_id) {
+            return undefined;
+        }
+        return query.topic_id.startsWith('$')
+            ? buildVariableOption(query.topic_id)
+            : {value: query.topic_id, label: query.topic_label || query.topic_id};
+    });
     const [regionOption, setRegion] = React.useState<string>("cn-beijing");
     const topicSelectOptionsRef = useRef<Array<SelectableValue<string>>>([]);
     const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
     const variableOptions = React.useMemo(() => getDashboardVariableOptions(), []);
+    const regionVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as region',
+    }));
+    const topicVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as topic',
+    }));
     const queryTypeOptions = [
         {label: 'Logs', value: 'logs'},
         {label: 'Region', value: 'region'},
@@ -102,9 +117,10 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
                                         ? [
                                             // 只用 dsConf.region 创建一个选项
                                             { value: dsConf.region, label: dsConf.region },
-                                            ...customOptions
+                                            ...customOptions,
+                                            ...regionVariableOptions,
                                         ]
-                                        : [...RegionOptions, ...customOptions] // 保持原来的
+                                        : [...RegionOptions, ...customOptions, ...regionVariableOptions] // 保持原来的
                                 }
                                 value={query.region ? {value: query.region, label: query.region} : undefined}
                                 allowCustomValue
@@ -150,27 +166,28 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
                                                 key_name = filterStr;
                                             }
                                         }
-                                        const selectedRegion = query.region && query.region.length > 0 ? query.region : regionOption;
-                                        const options = await datasource.listTopics(selectedRegion, key_id, key_name).then((result: any) =>
+                                        const selectedRegion = resolveFirstTemplateValue(query.region) || (query.region && !query.region.startsWith('$') ? query.region : '') || regionOption;
+                                        const topicOptions = await datasource.listTopics(selectedRegion, key_id, key_name).then((result: any) =>
                                             result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
                                                 {
                                                     value: item.TopicId,
                                                     label: `${item.TopicName} (${item.TopicId})`,
                                                 })),
                                         );
+                                        const options = [...topicOptions, ...topicVariableOptions];
                                         topicSelectOptionsRef.current = options;
                                         resolve(options)
                                     });
                                 }}
                             defaultOptions
-                            defaultValue={query.topic_id ? {value: query.topic_id, label: query.topic_label} : value}
+                            defaultValue={query.topic_id ? {value: query.topic_id, label: query.topic_label || query.topic_id} : value}
                             value={topicSelectOptionsRef?.current?.find((item: any) => item.value === value?.value) || {
                                 value: value?.value,
                                 label: value?.label,
                             }}
                             onChange={(e: any) => {
                                 setValue(e);
-                                onChange({...query, topic_id: e.value || "", topic_label: e.label || ""});
+                                onChange({...query, topic_id: e.value || "", topic_label: e.label || e.value || ""});
                                 // saveSelection({...query, region: regionOption, topic_id: e.value || "", topic_label: e?.label});
                             }
                             }/>
@@ -209,5 +226,26 @@ const getDashboardVariableOptions = (): Array<SelectableValue<string>> => {
     return variables
         .map((variable: any) => variable?.name)
         .filter(Boolean)
-        .map((name: string) => ({value: `$${name}`, label: `$${name}`}));
+        .map((name: string) => buildVariableOption(`$${name}`));
+};
+
+const buildVariableOption = (value: string): SelectableValue<string> & { isVariable: boolean } => ({
+    value,
+    label: value,
+    isVariable: true,
+});
+
+const resolveFirstTemplateValue = (value: string | undefined): string => {
+    const raw = value?.trim();
+    if (!raw || !raw.startsWith('$')) {
+        return '';
+    }
+    const replaced = getTemplateSrv().replace(raw, undefined, 'csv');
+    if (!replaced || replaced === raw) {
+        return '';
+    }
+    return String(replaced)
+        .split(',')
+        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+        .find((item) => item && item !== '$__all' && item !== 'All' && item !== '.*') || '';
 };
