@@ -793,6 +793,7 @@ type listTopicsResourceRequest struct {
 	TopicID     string
 	TopicName   string
 	ProjectName string
+	ExactMatch  bool
 }
 
 func (d *Datasource) listTopicsResource(req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
@@ -816,7 +817,7 @@ func (d *Datasource) listTopicsResource(req *backend.CallResourceRequest, sender
 			Body:   []byte("accessKeySecret is not configured"),
 		})
 	}
-	resp, err := ListTopics(cli, params.TopicID, params.TopicName, params.ProjectName)
+	resp, err := ListTopics(cli, params.TopicID, params.TopicName, params.ProjectName, params.ExactMatch)
 	if err != nil {
 		log.DefaultLogger.Error("ListTopics resource error", "region", params.Region, "project_name", params.ProjectName, "topic_id", params.TopicID, "topic_name", params.TopicName, "error", err)
 		return sender.Send(&backend.CallResourceResponse{
@@ -846,6 +847,7 @@ func parseListTopicsResourceRequest(rawURL string) (listTopicsResourceRequest, e
 		TopicID:     strings.TrimSpace(query.Get("topic_id")),
 		TopicName:   strings.TrimSpace(query.Get("topic_name")),
 		ProjectName: strings.TrimSpace(query.Get("project_name")),
+		ExactMatch:  strings.EqualFold(strings.TrimSpace(query.Get("exact_match")), "true"),
 	}
 	if req.Region == "" {
 		return req, errors.New("region is required")
@@ -853,7 +855,10 @@ func parseListTopicsResourceRequest(rawURL string) (listTopicsResourceRequest, e
 	return req, nil
 }
 
-func ListTopics(cli sdk.Client, topicID, topicName, projectName string) (*sdk.DescribeTopicsResponse, error) {
+func ListTopics(cli sdk.Client, topicID, topicName, projectName string, exactMatch bool) (*sdk.DescribeTopicsResponse, error) {
+	if exactMatch && topicID == "" && topicName == "" {
+		return emptyDescribeTopicsResponse(), nil
+	}
 	projectID := ""
 	if projectName != "" {
 		projectResp, err := cli.DescribeProjects(&sdk.DescribeProjectsRequest{
@@ -871,7 +876,7 @@ func ListTopics(cli sdk.Client, topicID, topicName, projectName string) (*sdk.De
 				break
 			}
 		}
-		if projectID == "" && len(projectResp.Projects) > 0 {
+		if projectID == "" && !exactMatch && len(projectResp.Projects) > 0 {
 			projectID = projectResp.Projects[0].ProjectID
 		}
 		if projectID == "" {
@@ -884,9 +889,38 @@ func ListTopics(cli sdk.Client, topicID, topicName, projectName string) (*sdk.De
 		TopicID:    topicID,
 		TopicName:  topicName,
 		ProjectID:  projectID,
+		IsFullName: exactMatch,
 	})
+	if err != nil {
+		return resp, err
+	}
+	if exactMatch {
+		filterTopicsExactMatch(resp, topicName)
+	}
 	//log.DefaultLogger.Info("list topics sdk resp", "topic_id", topicID, "topic_name", topicName, "resp", resp, "err", err)
 	return resp, err
+}
+
+func filterTopicsExactMatch(resp *sdk.DescribeTopicsResponse, topicName string) {
+	if resp == nil {
+		return
+	}
+	topics := resp.Topics[:0]
+	for _, topic := range resp.Topics {
+		if topicName != "" && topic.TopicName != topicName {
+			continue
+		}
+		topics = append(topics, topic)
+	}
+	resp.Topics = topics
+	resp.Total = len(topics)
+}
+
+func emptyDescribeTopicsResponse() *sdk.DescribeTopicsResponse {
+	return &sdk.DescribeTopicsResponse{
+		Topics: []*sdk.Topic{},
+		Total:  0,
+	}
 }
 
 func LoadCli(ctx *backend.PluginContext, regionStr *string, grafanaVersion *string) (*LogSource, sdk.Client, error) {

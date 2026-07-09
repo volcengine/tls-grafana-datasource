@@ -168,7 +168,7 @@ export const VariableQueryEditor = ({query, onChange, datasource}: VariableQuery
                                         }
                                         const selectedRegion = resolveFirstTemplateValue(query.region) || (query.region && !query.region.startsWith('$') ? query.region : '') || regionOption;
                                         const topicOptions = await datasource.listTopics(selectedRegion, key_id, key_name).then((result: any) =>
-                                            result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
+                                            getTopicsFromResourceResult(result).map((item: { TopicId: any; TopicName: any; }) => (
                                                 {
                                                     value: item.TopicId,
                                                     label: `${item.TopicName} (${item.TopicId})`,
@@ -234,6 +234,10 @@ const buildVariableOption = (value: string): SelectableValue<string> & { isVaria
     label: value,
     isVariable: true,
 });
+
+const getTopicsFromResourceResult = (result: any) => {
+    return Array.isArray(result?.Topics) ? result.Topics : [];
+};
 
 const resolveFirstTemplateValue = (value: string | undefined): string => {
     const raw = value?.trim();
