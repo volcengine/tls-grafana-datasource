@@ -18,7 +18,7 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         return DEFAULT_QUERY;
     }
 
-    listTopics(region: string, topicID?: string, topicName?: string, projectName?: string) {
+    listTopics(region: string, topicID?: string, topicName?: string, projectName?: string, exactMatch?: boolean) {
         const params: Record<string, string> = {region};
         if (topicID) {
             params.topic_id = topicID;
@@ -28,6 +28,9 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         }
         if (projectName) {
             params.project_name = projectName;
+        }
+        if (exactMatch) {
+            params.exact_match = 'true';
         }
         return this.getResource('topics', params);
     }
@@ -47,11 +50,11 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
             return getRegionVariableValues(this.data_option);
         }
         if (query?.query_type === 'topics') {
-            const region = resolveFirstTemplateValue(query.region_variable || query.region, options) || this.data_option?.region || 'cn-beijing';
-            const topicName = resolveFirstTemplateValue(query.topic_name, options);
-            const projectName = resolveFirstTemplateValue(query.project_name, options);
-            return this.listTopics(region, undefined, topicName, projectName).then((result: any) =>
-                result.Topics.map((item: { TopicId: string; TopicName: string; ProjectId?: string; }) => ({
+            const region = resolveTemplateOrLiteralValue(query.region_variable || query.region, options) || this.data_option?.region || 'cn-beijing';
+            const topicName = resolveTemplateOrLiteralValue(query.topic_name, options);
+            const projectName = resolveTemplateOrLiteralValue(query.project_name, options);
+            return this.listTopics(region, undefined, topicName, projectName, true).then((result: any) =>
+                getTopicsFromResourceResult(result).map((item: { TopicId: string; TopicName: string; ProjectId?: string; }) => ({
                     text: `${item.TopicName} (${item.TopicId})`,
                     value: item.TopicId,
                 }))
@@ -101,6 +104,10 @@ export class TlsDataSource extends DataSourceWithBackend<TlsQuery, TlsDataSource
         }
         return [];
     }
+}
+
+function getTopicsFromResourceResult(result: any) {
+    return Array.isArray(result?.Topics) ? result.Topics : [];
 }
 
 function getRegionVariableValues(dsOptions?: TlsDataSourceOptions) {
@@ -196,6 +203,17 @@ function parseRegionTopicValues(values: string[]) {
 
 function resolveFirstTemplateValue(value: string | undefined, options: any) {
     return resolveTemplateValues(value, options)[0] || '';
+}
+
+function resolveTemplateOrLiteralValue(value: string | undefined, options: any) {
+    const raw = value?.trim();
+    if (!raw) {
+        return '';
+    }
+    if (!raw.startsWith('$')) {
+        return raw;
+    }
+    return resolveFirstTemplateValue(raw, options);
 }
 
 function getVariableRef(value: string | undefined) {
