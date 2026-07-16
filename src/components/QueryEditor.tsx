@@ -1,12 +1,10 @@
-import React, {ChangeEvent, useEffect, useRef} from 'react';
+import React, {ChangeEvent, useRef} from 'react';
 import {AsyncSelect, Card, Icon, InlineField, InlineFormLabel, Input, Select, SeriesTable, Tooltip} from '@grafana/ui';
 import {QueryEditorProps, SelectableValue} from '@grafana/data';
+import {getTemplateSrv} from '@grafana/runtime';
 import {TlsDataSource} from '../tlsDataSource';
-import {TlsDataSourceOptions, TlsQuery} from '../types';
+import {RegionTopic, TlsDataSourceOptions, TlsQuery} from '../types';
 import {RegionOptions, version, xColInfoSeries, xSelectOptions, yColInfoSeries} from "./const";
-import {getBackendSrv} from "@grafana/runtime";
-// @ts-ignore
-import {TLSService} from "../tls"
 
 type Props = QueryEditorProps<TlsDataSource, TlsQuery, TlsDataSourceOptions>;
 export const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -74,20 +72,26 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
     const {ycol, xcol, tls_query} = query;
     // const {ycol, xcol, tls_query, region = "cn-beijing"} = query;
     // const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
-    const [value, setValue] = React.useState<any>();
-    const [regionOption, setRegion] = React.useState<string>("cn-beijing");
-    const topicSelectOptionsRef = useRef<SelectableValue<string>>([]);
+    const [initialSelection] = React.useState(loadSelection);
+    const initialRegionTopics = buildStoredRegionTopics(initialSelection, query);
+    const initialTopicVariable = initialSelection?.topic_variable || query.topic_variable || getVariableRef(initialSelection?.topic_id || query.topic_id);
+    const [selectedRegionTopics, setSelectedRegionTopics] = React.useState<RegionTopic[]>(initialRegionTopics);
+    const [value, setValue] = React.useState<any>(() => {
+        const topicValues = buildTopicSelectValues(initialRegionTopics);
+        return initialTopicVariable ? [...topicValues, buildVariableOption(initialTopicVariable)] : topicValues;
+    });
+    const [regionOptions, setRegionOptions] = React.useState<any>(() => buildRegionValues(initialSelection, query));
+    const topicSelectOptionsRef = useRef<Array<SelectableValue<string>>>([]);
     const [customOptions, setCustomOptions] = React.useState<Array<SelectableValue<string>>>([]);
-    useEffect(() => {
-        const data = loadSelection();
-        if (data?.region) {
-            setRegion(data.region)
-        }
-        if (data?.topic_id) {
-            setValue({value: data.topic_id, label: data.topic_label})
-        }
-        // @ts-ignore
-    }, []);
+    const variableOptions = React.useMemo(() => getDashboardVariableOptions(), []);
+    const regionVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as region',
+    }));
+    const topicVariableOptions = variableOptions.map((item) => ({
+        ...item,
+        description: 'Use selected dashboard variable value as topic',
+    }));
     // @ts-ignore
     return dsConf && dsConf.accountMode ? (
         <>
@@ -97,25 +101,49 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                         <Select
                             width={20}
                             menuShouldPortal
-                            options={[...RegionOptions, ...customOptions]}
-                            value={query.region || regionOption}
+                            isMulti
+                            options={
+                                dsConf.region && dsConf.region.trim() !== ''
+                                    ? [
+                                        // 只用 dsConf.region 创建一个选项
+                                        { value: dsConf.region, label: dsConf.region },
+                                        ...customOptions,
+                                        ...regionVariableOptions,
+                                    ]
+                                    : [...RegionOptions, ...customOptions, ...regionVariableOptions] // 保持原来的
+                            }
+                            value={regionOptions}
                             allowCustomValue
                             onCreateOption={(v) => {
-                                const customValue: SelectableValue<string> = { value: v, label: v };
+                                const customValue: SelectableValue<string> = {value: v, label: v};
                                 setCustomOptions([...customOptions, customValue]);
-                                setRegion(v);
+                                setRegionOptions([...regionOptions, customValue]);
                             }}
-                            defaultValue={query.region || loadSelection()?.region || "cn-beijing"}
+                            defaultValue={regionOptions}
                             onChange={async (v) => {
-                                onChange({...query, region: v.value});
-                                if (v.value !== regionOption) {
-                                    // @ts-ignore
-                                    setValue({label: "", value: ""});
+                                const selectedRegions = Array.isArray(v) ? v : (v ? [v] : []);
+                                const regions = selectedRegions.map((item) => item.value || "").filter(Boolean);
+                                const regionVariable = selectedRegions.find((item) => item.isVariable)?.value || "";
+                                const selectedRegionSet = new Set(regions);
+                                const regionTopics = selectedRegionTopics.filter((item) => selectedRegionSet.has(item.region));
+                                const nextQuery = {
+                                    ...query,
+                                    region: regions[0] || "",
+                                    regions,
+                                    region_variable: regionVariable,
+                                    topic_id: regionTopics[0]?.topic_id || "",
+                                    topic_label: regionTopics[0]?.topic_label || "",
+                                    topic_ids: regionTopics.map((item) => item.topic_id),
+                                    topic_labels: regionTopics.map((item) => item.topic_label || item.topic_id),
+                                    region_topics: regionTopics,
+                                };
+                                setRegionOptions(selectedRegions);
+                                if (regionTopics.length !== selectedRegionTopics.length) {
+                                    setSelectedRegionTopics(regionTopics);
+                                    setValue(buildTopicSelectValues(regionTopics));
                                 }
-                                setRegion(v.value || "cn-beijing")
-
-                                // @ts-ignore
-                                saveSelection({...query, region: v.value});
+                                onChange(nextQuery);
+                                saveSelection(nextQuery);
                             }
                             }
                         />
@@ -127,11 +155,13 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                 </InlineField>
                 <AsyncSelect
                     width={50}
-                    key={regionOption}
+                    key={getSelectedRegions(regionOptions).join(",")}
+                    isMulti
                     loadOptions={
                         (filterStr: string) => {
                             return new Promise<Array<SelectableValue<string>>>(async (resolve) => {
-                                let key_id, key_name;
+                                let key_id: string | undefined;
+                                let key_name: string | undefined;
                                 if (filterStr && filterStr.length > 0) {
                                     if (uuidRegex.test(filterStr)) {
                                         key_id = filterStr;
@@ -139,35 +169,48 @@ export function QueryEditor({query, onChange, onRunQuery, ...conf}: Props) {
                                         key_name = filterStr;
                                     }
                                 }
-                                let tlsConfig = {
-                                    accessKey: dsConf?.accessKeyId,
-                                    secret: dsConf?.accessKeySecret,
-                                    url: getHostByRegion(regionOption),
-                                    region: regionOption,
-                                }
-                                const tlsService = new TLSService(tlsConfig, getBackendSrv());
-                                const options = await tlsService.listTopics(key_id, key_name).then((result: any) =>
-                                    result.data.Topics.map((item: { TopicId: any; TopicName: any; }) => (
-                                        {
-                                            value: item.TopicId,
-                                            label: `${item.TopicName} (${item.TopicId})`,
-                                        })),
-                                );
-                                topicSelectOptionsRef.current = options;
-                                resolve(options)
+                                const selectedRegions = resolveSelectedRegionsForTopicLoad(regionOptions);
+                                const options = (await Promise.all(selectedRegions.map(async (region) => {
+                                    return conf.datasource.listTopics(region, key_id, key_name).then((result: any) =>
+                                        result.Topics.map((item: { TopicId: any; TopicName: any; }) => (
+                                            {
+                                                value: makeRegionTopicKey(region, item.TopicId),
+                                                label: `${region} / ${item.TopicName} (${item.TopicId})`,
+                                                region,
+                                                topic_id: item.TopicId,
+                                                topic_label: `${item.TopicName} (${item.TopicId})`,
+                                            })),
+                                    );
+                                }))).flat();
+                                const topicOptions = [...options, ...topicVariableOptions];
+                                topicSelectOptionsRef.current = topicOptions;
+                                resolve(topicOptions)
                             });
                         }}
                     defaultOptions
-                    defaultValue={value || {value: query.topic_id, label: query.topic_label || query.topic_id }}
-                    value={topicSelectOptionsRef?.current?.find((item: any) => item.value === value?.value) || {
-                        value: value?.value,
-                        label: value?.label,
-                    }}
+                    defaultValue={value.length > 0 ? value : buildTopicSelectValues(initialRegionTopics)}
+                    value={value}
                     onChange={(e: any) => {
-                        setValue(e);
-                        onChange({...query, region: regionOption, topic_id: e.value || "",topic_label: e.label || ""});
-                        saveSelection({...query, region: regionOption, topic_id: e.value || "", topic_label: e?.label});
-                        if (e.value) {
+                        const selectedTopics = Array.isArray(e) ? e : (e ? [e] : []);
+                        const topicVariable = selectedTopics.find((item) => item.isVariable)?.value || "";
+                        const regionTopics = buildRegionTopicsFromValues(selectedTopics);
+                        const regions = getSelectedRegions(regionOptions);
+                        const nextQuery = {
+                            ...query,
+                            region: regions[0] || "",
+                            regions,
+                            topic_id: topicVariable || regionTopics[0]?.topic_id || "",
+                            topic_label: topicVariable || regionTopics[0]?.topic_label || "",
+                            topic_ids: regionTopics.map((item) => item.topic_id),
+                            topic_labels: regionTopics.map((item) => item.topic_label || item.topic_id),
+                            topic_variable: topicVariable,
+                            region_topics: regionTopics,
+                        };
+                        setSelectedRegionTopics(regionTopics);
+                        setValue([...buildTopicSelectValues(regionTopics), ...selectedTopics.filter((item) => item.isVariable)]);
+                        onChange(nextQuery);
+                        saveSelection(nextQuery);
+                        if (regionTopics.length > 0 || topicVariable) {
                             onRunQuery();
                         }
                     }
@@ -325,11 +368,132 @@ const onSelectChange = (realXCol: string) => {
     return 'custom';
 };
 
-
-export function getHostByRegion(region: string | undefined) {
-    if (region && region.length > 0) {
-        return "https://tls-" + region + ".volces.com"
+const buildStoredRegionTopics = (data: any, query: TlsQuery): RegionTopic[] => {
+    if (data?.topic_variable || query.topic_variable || getVariableRef(data?.topic_id || query.topic_id)) {
+        return [];
     }
-    return region
-}
+    const regionTopics: RegionTopic[] = Array.isArray(data?.region_topics) && data.region_topics.length > 0
+        ? data.region_topics
+        : Array.isArray(query.region_topics) && query.region_topics.length > 0
+            ? query.region_topics
+            : [];
+    if (regionTopics.length > 0) {
+        return regionTopics;
+    }
+    const ids = Array.isArray(data?.topic_ids) && data.topic_ids.length > 0
+        ? data.topic_ids
+        : Array.isArray(query.topic_ids) && query.topic_ids.length > 0
+            ? query.topic_ids
+            : data?.topic_id
+                ? [data.topic_id]
+                : query.topic_id
+                    ? [query.topic_id]
+                    : [];
+    const labels = Array.isArray(data?.topic_labels) && data.topic_labels.length > 0
+        ? data.topic_labels
+        : Array.isArray(query.topic_labels) && query.topic_labels.length > 0
+            ? query.topic_labels
+            : data?.topic_label
+                ? [data.topic_label]
+                : query.topic_label
+                    ? [query.topic_label]
+                    : [];
+    const region = data?.region || query.region || "cn-beijing";
 
+    return ids.map((id: string, index: number) => ({
+        region,
+        topic_id: id,
+        topic_label: labels[index] || id,
+    }));
+};
+
+const buildTopicSelectValues = (regionTopics: RegionTopic[]): Array<SelectableValue<string>> => {
+    return regionTopics.map((item) => ({
+        value: makeRegionTopicKey(item.region, item.topic_id),
+        label: `${item.region} / ${item.topic_label || item.topic_id}`,
+        region: item.region,
+        topic_id: item.topic_id,
+        topic_label: item.topic_label || item.topic_id,
+    }));
+};
+
+const buildRegionValues = (data: any, query: TlsQuery): Array<SelectableValue<string>> => {
+    if (data?.region_variable || query.region_variable) {
+        const variable = data?.region_variable || query.region_variable;
+        return [buildVariableOption(variable)];
+    }
+    const regions = Array.isArray(data?.regions) && data.regions.length > 0
+        ? data.regions
+        : Array.isArray(query.regions) && query.regions.length > 0
+            ? query.regions
+            : Array.isArray(data?.region_topics) && data.region_topics.length > 0
+                ? Array.from(new Set(data.region_topics.map((item: RegionTopic) => item.region)))
+                : Array.isArray(query.region_topics) && query.region_topics.length > 0
+                    ? Array.from(new Set(query.region_topics.map((item) => item.region)))
+                    : [data?.region || query.region || "cn-beijing"];
+    return regions.map((region: string) => region.startsWith('$') ? buildVariableOption(region) : ({value: region, label: region}));
+};
+
+const getSelectedRegions = (regions: any): string[] => {
+    const selectedRegions = Array.isArray(regions) ? regions : (regions ? [regions] : []);
+    return selectedRegions.map((item) => item.value || "").filter(Boolean);
+};
+
+const resolveSelectedRegionsForTopicLoad = (regions: any): string[] => {
+    return getSelectedRegions(regions).flatMap((region) => {
+        if (!region.startsWith('$')) {
+            return [region];
+        }
+        return resolveTemplateValues(region);
+    });
+};
+
+const getDashboardVariableOptions = (): Array<SelectableValue<string> & { isVariable: boolean }> => {
+    const variables = (getTemplateSrv() as any).getVariables?.() || [];
+    return variables
+        .map((variable: any) => variable?.name)
+        .filter(Boolean)
+        .map((name: string) => buildVariableOption(`$${name}`));
+};
+
+const buildVariableOption = (value: string): SelectableValue<string> & { isVariable: boolean } => ({
+    value,
+    label: value,
+    isVariable: true,
+});
+
+const resolveTemplateValues = (value: string): string[] => {
+    const replaced = getTemplateSrv().replace(value, undefined, 'csv');
+    if (!replaced || replaced === value) {
+        return [];
+    }
+    return String(replaced)
+        .split(',')
+        .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter((item) => item && item !== '$__all' && item !== 'All' && item !== '.*');
+};
+
+const getVariableRef = (value: string | undefined): string => {
+    const trimmed = value?.trim();
+    return trimmed?.startsWith('$') ? trimmed : '';
+};
+
+const makeRegionTopicKey = (region: string, topicId: string) => `${region}:${topicId}`;
+
+const buildRegionTopicsFromValues = (selectedTopics: any[]): RegionTopic[] => {
+    return selectedTopics.map((item) => ({
+        region: item.region,
+        topic_id: item.topic_id || item.value,
+        topic_label: item.topic_label || item.label || item.topic_id || item.value,
+    })).filter((item) => item.region && item.topic_id);
+};
+
+export function getHostByRegion(region: string | undefined, configRegion: string | undefined, endpoint: string | undefined) {
+    if (region && region.length > 0) {
+        if (region !== configRegion) {
+            return "https://tls-" + region + ".volces.com"
+        }
+    }
+
+    return endpoint
+}

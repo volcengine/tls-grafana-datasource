@@ -1,13 +1,26 @@
 import {DataSourceJsonData} from '@grafana/data';
 import {DataQuery} from '@grafana/schema';
 
+export interface RegionTopic {
+    region: string;
+    topic_id: string;
+    topic_label?: string;
+}
+
 export interface TlsQuery extends DataQuery {
     ycol?: string;
     xcol?: string;
     tls_query?: string;
     region?: string;
+    regions?: string[];
+    region_variable?: string;
     topic_id?: string;
+    topic_ids?: string[];
     topic_label?: string;
+    topic_labels?: string[];
+    topic_variable?: string;
+    region_topics?: RegionTopic[];
+    grafana_version?: string;
 }
 
 export const DEFAULT_QUERY: Partial<TlsQuery> = {
@@ -22,6 +35,7 @@ export interface TlsDataSourceOptions extends DataSourceJsonData {
     region?: string;
     topic?: string;
     accessKeyId?: string;
+    /** Legacy field kept for migration from old configs. New configs use secureJsonData.accessKeySecret. */
     accessKeySecret?: string;
     accountMode?: boolean;
 }
@@ -35,8 +49,16 @@ export interface TlsSecureJsonData {
 
 /** 变量数据类型。字符场景为云监控配置，对象场景由内部字段决定 */
 export interface VariableQuery {
+    query_type?: 'logs' | 'topics' | 'region';
     tls_query: string;
     region?: string;
+    regions?: string[];
+    region_variable?: string;
+    project_name?: string;
     topic_id?: string;
+    topic_ids?: string[];
+    topic_name?: string;
     topic_label?: string;
+    topic_labels?: string[];
+    region_topics?: RegionTopic[];
 }
