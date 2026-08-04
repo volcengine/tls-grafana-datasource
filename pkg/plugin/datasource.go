@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -34,6 +35,9 @@ var (
 )
 
 const TlsGrafanaPluginVersion = "2.5.0"
+const logXcol = "log"
+
+var logDisplayLocation = time.FixedZone("UTC+8", 8*60*60)
 
 // NewDatasource creates a new datasource instance.
 func NewDatasource(_ context.Context, _ backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -270,6 +274,9 @@ func (d *Datasource) buildDataFrame(xcol string, ycols []string, logs []map[stri
 	} else if xcol == "pie" {
 		log.DefaultLogger.Info("pie")
 		return d.BuildPie(logs, ycols)
+	} else if isLogXcol(xcol) {
+		log.DefaultLogger.Info("log")
+		return d.BuildLogKV(logs)
 	} else if len(xcol) > 0 && xcol != "table" {
 		log.DefaultLogger.Info("time-series")
 		return d.BuildTimeSeries(logs, xcol, ycols)
@@ -551,6 +558,119 @@ func (d *Datasource) BuildTable(logs []map[string]interface{}, xcol string, ycol
 	}
 	frames = append(frames, frame)
 	return frames
+}
+
+func (d *Datasource) BuildLogKV(logs []map[string]interface{}) data.Frames {
+	frame := data.NewFrame("logs").SetMeta(&data.FrameMeta{
+		Type:                   data.FrameTypeLogLines,
+		PreferredVisualization: data.VisTypeLogs,
+	})
+
+	timestamps := make([]time.Time, 0, len(logs))
+	bodies := make([]string, 0, len(logs))
+	for _, alog := range logs {
+		timestamps = append(timestamps, getLogTime(alog))
+		bodies = append(bodies, formatLogKVLine(alog))
+	}
+
+	frame.Fields = append(frame.Fields, data.NewField("timestamp", nil, timestamps))
+	frame.Fields = append(frame.Fields, data.NewField("body", nil, bodies))
+	return data.Frames{frame}
+}
+
+func isLogXcol(xcol string) bool {
+	return xcol == logXcol
+}
+
+func getLogTime(alog map[string]interface{}) time.Time {
+	for _, field := range []string{"__time__", "time"} {
+		if val, ok := alog[field]; ok {
+			msec, err := parseNumberFloat(val)
+			if err == nil {
+				return time.UnixMilli(int64(msec))
+			}
+		}
+	}
+	return time.UnixMilli(0)
+}
+
+func formatLogKVLine(alog map[string]interface{}) string {
+	timeLine, hasTimeLine := formatLogTimeLine(alog)
+	keys := make([]string, 0, len(alog))
+	for k := range alog {
+		if shouldDisplayLogField(k) {
+			keys = append(keys, k)
+		}
+	}
+	sortLogKeys(keys)
+
+	var builder strings.Builder
+	if hasTimeLine {
+		builder.WriteString(timeLine)
+	}
+	for _, key := range keys {
+		if builder.Len() > 0 {
+			builder.WriteByte('\n')
+		}
+		builder.WriteString(key)
+		builder.WriteString(": ")
+		builder.WriteString(formatLogValue(alog[key]))
+	}
+	return builder.String()
+}
+
+func formatLogTimeLine(alog map[string]interface{}) (string, bool) {
+	for _, field := range []string{"__time__", "time"} {
+		val, ok := alog[field]
+		if !ok {
+			continue
+		}
+		msec, err := parseNumberFloat(val)
+		if err != nil {
+			continue
+		}
+		return field + ": " + time.UnixMilli(int64(msec)).In(logDisplayLocation).Format("2006-01-02 15:04:05.000"), true
+	}
+	return "", false
+}
+
+func shouldDisplayLogField(key string) bool {
+	return key != "__time__" && key != "time" && key != "__package_offset__"
+}
+
+func sortLogKeys(keys []string) {
+	sort.Slice(keys, func(i, j int) bool {
+		iSystem := strings.HasPrefix(keys[i], "__")
+		jSystem := strings.HasPrefix(keys[j], "__")
+		if iSystem != jSystem {
+			return !iSystem
+		}
+		return keys[i] < keys[j]
+	})
+}
+
+func formatLogValue(value interface{}) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case json.Number:
+		return v.String()
+	case bool:
+		return strconv.FormatBool(v)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		if bytes, err := json.Marshal(v); err == nil {
+			return string(bytes)
+		}
+		return fmt.Sprint(v)
+	}
 }
 
 func SearchLogs(cli sdk.Client, topic, query string, start, end int64, limit int) (*sdk.SearchLogsResponse, error) {
@@ -1000,6 +1120,16 @@ func parseNumberFloat(value interface{}) (float64, error) {
 
 func buildFrameWhenLogsEmpty(resp *sdk.SearchLogsResponse, xcol string) *data.Frame {
 	frame := data.NewFrame("response")
+	if isLogXcol(xcol) {
+		frame = data.NewFrame("logs").SetMeta(&data.FrameMeta{
+			Type:                   data.FrameTypeLogLines,
+			PreferredVisualization: data.VisTypeLogs,
+		})
+		frame.Fields = append(frame.Fields, data.NewField("timestamp", nil, []time.Time{}))
+		frame.Fields = append(frame.Fields, data.NewField("body", nil, []string{}))
+		return frame
+	}
+
 	xcols := strings.Split(xcol, ",")
 	var x string
 	if len(xcols) > 0 {
